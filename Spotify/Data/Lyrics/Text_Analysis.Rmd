@@ -1,0 +1,77 @@
+# TEXT ANALYSIS
+This file analyzes the song lyrics_clean for every AOTY winner.
+
+```{r message=FALSE}
+library(tidyverse)
+library(tidytext)
+library(tm)
+```
+
+```{r}
+# Read in the lyrics data frame
+lyrics_clean <- readRDS("lyrics_clean.RDS")
+
+# Process the text
+lyrics_clean$line <- tolower(lyrics_clean$line)
+lyrics_clean$line <- removePunctuation(lyrics_clean$line)
+lyrics_clean$line <- removeNumbers(lyrics_clean$line)
+stop_words <- removePunctuation(stopwords("en"))
+lyrics_clean$line <- removeWords(lyrics_clean$line, stop_words)
+lyrics_clean$line <- stripWhitespace(lyrics_clean$line)
+
+clean <- tidytext::unnest_tokens(lyrics_clean, output = word, input = line)
+
+# Complete the stems
+dictionary <- clean$word
+clean$stem <- stemDocument(clean$word)
+clean$complete <- stemCompletion(clean$stem, dictionary)
+
+# There were a number of empty rows after completing the stems, so fill those in with just the stems
+clean$complete_full <- ifelse(clean$complete == "", clean$stem, clean$complete)
+
+# Write the processed text to new file
+saveRDS(clean, "processed_text.RDS")
+write.csv(clean, "processed_text.csv")
+```
+
+-------------------------------------------------------------------------------------------------------------------------------
+The text processing steps take a very long time, so it's easiest to just load the "processed_text.RDS" files going forward.
+
+```{r}
+processed_text <- readRDS("processed_text.RDS")
+```
+
+```{r}
+processed_text %>% group_by(complete_full) %>% summarize(count = n()) %>% top_n(10, count) %>%
+  ggplot(aes(x = reorder(complete_full, count), y = count)) + geom_col() + coord_flip() +
+  labs(title = expression(paste("I Want To ", bold("Know "), "What ", bold("Love "), "Is")),
+       subtitle = "\'Love\' is the most common word across all winning albums, followed by \'know\' and \'come\'",
+       x = "",
+       y = "Frequency") +
+  theme_light()
+```
+
+```{r}
+nrc <- tidytext::get_sentiments("nrc")
+
+sentiment <- processed_text %>% inner_join(nrc)
+```
+
+```{r}
+grouped_sent <- sentiment %>% group_by(word, sentiment) %>% summarize(count = n())
+sent_count <- grouped_sent %>% group_by(sentiment) %>% summarize(total = sum(count))
+
+sent_count %>% ggplot(aes(x = reorder(sentiment, total), y = total)) + 
+  geom_col(position = "dodge") + 
+  coord_flip() +
+  theme_light() +
+  labs(x = "",
+       y = "Frequency",
+       title = "Breakdown of Sentiment",
+       subtitle = "Most words are positive or joyous, although negative words are not too far off",
+       fill = "") + 
+  theme(plot.title = element_text(face = "bold", color = "black", size = 25, family = "Times", hjust = 0.5),
+        legend.position = "top",
+        legend.key.height = unit(1, "line"),
+        legend.text = element_text(size = 18, family = "Times", lineheight = 2))
+```

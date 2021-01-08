@@ -1,0 +1,123 @@
+# GET ALBUM OF THE YEAR DATA
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(rvest)
+library(xml2)
+library(tidyverse)
+```
+
+```{r}
+aoty_url <- "https://en.wikipedia.org/wiki/Grammy_Award_for_Album_of_the_Year"
+aoty_html <- read_html(aoty_url)
+
+table <- html_nodes(aoty_html, css = ".wikitable")
+aoty_data <- html_table(table, fill = TRUE)
+```
+
+## 1990 to 2020
+```{r}
+################################################################################################################
+# Create a data frame of AOTY cases from 1990 to 2020.
+#
+# `aoty_data` is comprised of 8 separate data frames. The last 4 are cases from 1990 to 2020 and are pretty
+# clean & identical in structure, so we will start by concatenating them together and cleaning them up.
+################################################################################################################
+
+aoty_df_raw <- rbind(aoty_data[[8]], aoty_data[[7]], aoty_data[[6]], aoty_data[[5]])
+aoty_df_raw$Year <- str_extract(aoty_df_raw$Year, '\\d{4}') # Clean up 'Year' variable by removing the brackets from the string
+aoty_df_raw_1 <- aoty_df_raw %>% 
+  rename(Artist = `Artist(s)`) %>% # Rename 'Artist(s)' variable
+  filter(!is.na(Album)) %>% # Get rid of NA rows
+  select(-`Production team`) # Drop 'Production team' column
+
+# This particular album title has brackets in it, which need to be removed.
+aoty_df_raw_1[72, "Album"] <- "O Brother, Where Art Thou? Soundtrack"
+
+# Create a dummy variable `Win` to indicate winners (= 1) and losers (= 0). There's
+# no easy way to do this other than to create a vector of winning albums and use an if-else statement.
+
+winners <- c("When We All Fall Asleep, Where Do We Go?", "Golden Hour", "24K Magic", "25", "1989", "Morning Phase",
+             "Random Access Memories", "Babel", "21", "The Suburbs", "Fearless", "Raising Sand", "River: The Joni Letters",
+             "Taking the Long Way", "How to Dismantle an Atomic Bomb", "Genius Loves Company", "Speakerboxxx/The Love Below",
+             "Come Away with Me", "O Brother, Where Art Thou? Soundtrack", "Two Against Nature", "Supernatural",
+             "The Miseducation of Lauryn Hill", "Time Out of Mind", "Falling into You", "Jagged Little Pill",
+             "MTV Unplugged", "The Bodyguard", "Unplugged", "Unforgettable... with Love", "Back on the Block", "Nick of Time")
+  
+aoty_df_raw_1$Win <- ifelse(aoty_df_raw_1$Album %in% winners, 1, 0)
+```
+
+## Pre-1990: Winners
+```{r}
+################################################################################################################
+# Create a data frame of ROTY cases prior to 1990.
+#
+# The rest of the data frames have a 'Winners' column and a 'Nominees' column,
+# so we will have to work with them separately. Start by creating a data frame of winners.
+################################################################################################################
+
+aoty_messy <- rbind(aoty_data[[1]], aoty_data[[2]], aoty_data[[3]], aoty_data[[4]])
+
+# The `Winners` column has some strings that list both artists and producers, so we need to separate them below.
+winners_split <- str_split(aoty_messy$`Winner(s)`, "·", simplify = TRUE)
+aoty_df_raw_2 <- cbind(aoty_messy, winners_split)
+
+aoty_df_raw_2$Win <- 1 # Create dummy variable `Win`. Since these are all winners, assign them a value of 1.
+aoty_df_raw_2 <- aoty_df_raw_2 %>%
+  select(Year = `Year[I]`, Album = Work, Artist = `1`, Win)
+```
+
+## Pre-1990: Nominees
+```{r}
+################################################################################################################
+# Now we will create a data frame for the rest of the nominees.
+# The 'Nominees' column is quite messy. It's simplest to write lines, export to CSV and read it back in.
+# This way, there is 1 nominee per row.
+################################################################################################################
+
+cat(aoty_messy$Nominees, file = "output.txt", sep = "\n")
+aoty_messy_nominees <- read.delim("output.txt", header = FALSE)
+
+# The string contains the album title and the artist, so we need to separate them into two different columns.
+aoty_messy_nominees <- aoty_messy_nominees %>%
+  separate(V1, c("Album", "Artist"), sep = " – ")
+aoty_messy_nominees$Win <- 0 # Create dummy variable `Win`. Since they all lost, give them a value of 0.
+
+# Lastly, we need to append a new column for years. There are 4 other nominees per year in 1959 and 1960;
+# 5 others in 1961 and 1962; 4 others in 1963 thru 1970; 5 others in 1971; and 4 others from 1972 thru 1989.
+years_rep <- rep(1959, 4)
+years_rep <- c(years_rep, rep(1960, 4))
+years_rep <- c(years_rep, rep(1961, 5))
+years_rep <- c(years_rep, rep(1962, 5))
+
+years <- 1963:1970
+for (i in years) {
+  years_rep <- c(years_rep, rep(i, 4))
+}
+
+years_rep <- c(years_rep, rep(1971, 5))
+
+years <- 1972:1989
+for (i in years) {
+  years_rep <- c(years_rep, rep(i, 4))
+}
+
+aoty_df_raw_3 <- cbind(Year = years_rep, aoty_messy_nominees)
+```
+
+```{r}
+################################################################################################################
+# Bring all of the raw data frames together to form one clean data frame.
+# There's some random white space for some of these variables that also need to be removed.
+################################################################################################################
+
+aoty_clean <- rbind(aoty_df_raw_1, aoty_df_raw_2, aoty_df_raw_3)
+aoty_clean$Album <- str_trim(aoty_clean$Album)
+aoty_clean$Artist <- str_trim(aoty_clean$Artist)
+
+saveRDS(aoty_clean, "aoty_clean.RDS")
+write_csv(aoty_clean, "aoty_clean.csv")
+```
+

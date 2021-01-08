@@ -1,0 +1,111 @@
+# GET RECORD OF THE YEAR DATA
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(rvest)
+library(xml2)
+library(tidyverse)
+```
+
+```{r}
+roty_url <- "https://en.wikipedia.org/wiki/Grammy_Award_for_Record_of_the_Year"
+roty_html <- read_html(roty_url)
+
+table <- html_nodes(roty_html, css = ".wikitable")
+roty_data <- html_table(table, fill = TRUE)
+```
+
+## 1998 to 2020
+```{r}
+################################################################################################################
+# Create a data frame of ROTY cases from 1998 to 2020.
+#
+# `roty_data` is comprised of 5 separate data frames. The last 4 are cases from 1998 to 2020 and are pretty
+# clean & identical in structure, so we will start by concatenating them together and cleaning them up.
+################################################################################################################
+
+roty_df_raw <- rbind(roty_data[[5]], roty_data[[4]], roty_data[[3]], roty_data[[2]])
+roty_df_raw$Year <- str_extract(roty_df_raw$Year, '\\d{4}') # Clean up 'Year' variable by removing the brackets from the string
+roty_df_raw_1 <- roty_df_raw %>% 
+  rename(Artist = `Artist(s)`) %>% # Rename 'Artist(s)' variable
+  filter(!is.na(Record)) %>% # Get rid of NA rows
+  select(-`Production team`) # Drop 'Production team' column
+
+roty_df_raw_1$Record <- str_remove_all(roty_df_raw_1$Record, "\"") # Get rid of quotation marks around song titles
+
+
+# Create a dummy variable `Win` to indicate winners (= 1) and losers (= 0). There's
+# no easy way to do this other than to create a vector of winning titles and use an if-else statement.
+
+winners <- c("Bad Guy", "This Is America", "24K Magic", "Hello", "Uptown Funk", "Stay with Me (Darkchild Version)",
+             "Get Lucky", "Somebody That I Used to Know", "Rolling in the Deep", "Need You Now", "Use Somebody",
+             "Please Read the Letter", "Rehab", "Not Ready to Make Nice", "Boulevard of Broken Dreams", 
+             "Here We Go Again", "Clocks", "Don't Know Why", "Walk On", "Beautiful Day", "Smooth", "My Heart Will Go On",
+             "Sunny Came Home")
+
+roty_df_raw_1$Win <- ifelse(roty_df_raw_1$Record %in% winners, 1, 0)
+```
+
+## Pre-1998
+```{r}
+################################################################################################################
+# Create a data frame of ROTY cases prior to 1998.
+#
+# `roty_data[1]` is a data frame that has a 'Winners' column and a 'Nominees' column,
+# so we will have to work with them separately. Start by creating a data frame of winners.
+################################################################################################################
+
+roty_messy <- roty_data[[1]]
+
+# The `Winners` column has some strings that list both artists and producers, so we need to separate them below.
+winners_split <- str_split(roty_messy$`Winner(s)`, "·", simplify = TRUE)
+roty_df_raw_2 <- cbind(roty_messy, winners_split)
+
+roty_df_raw_2$Win <- 1 # Create dummy variable `Win`. Since these are all winners, assign them a value of 1.
+roty_df_raw_2 <- roty_df_raw_2 %>%
+  select(Year = `Year[I]`, Record = Work, Artist = `1`, Win)
+roty_df_raw_2$Record <- str_remove_all(roty_df_raw_2$Record, "\"") # Get rid of quotation marks around song titles
+roty_df_raw_2$Record <- str_remove_all(roty_df_raw_2$Record, "[*]") # Get rid of asterisks in song titles
+```
+
+```{r}
+################################################################################################################
+# Now we will create a data frame for the rest of the nominees.
+# The 'Nominees' column is quite messy. It's simplest to use writeLines, export to CSV and read it back in.
+# This way, there is 1 nominee per row.
+################################################################################################################
+
+cat(roty_messy$Nominees, file = "output.txt", sep = "\n")
+roty_messy_nominees <- read.delim("output.txt", header = FALSE)
+
+# The string contains the song title and the artist, so we need to separate them into two different columns.
+roty_messy_nominees <- roty_messy_nominees %>%
+  separate(V1, c("Record", "Artist"), sep = " by ")
+roty_messy_nominees$Win <- 0 # Create dummy variable `Win`. Since they all lost, give them a value of 0.
+
+# Lastly, we need to append a new column for years. There are 4 other nominees per year.
+years <- 1959:1997
+years_rep <- NULL
+for (i in years) {
+  years_rep <- c(years_rep, rep(i, 4))
+}
+
+roty_df_raw_3 <- cbind(Year = years_rep, roty_messy_nominees)
+```
+
+```{r}
+################################################################################################################
+# Bring all of the raw data frames together to form one clean data frame.
+# There's some random white space for some of these variables that also need to be removed.
+################################################################################################################
+
+roty_clean <- rbind(roty_df_raw_1, roty_df_raw_2, roty_df_raw_3)
+roty_clean$Record <- str_trim(roty_clean$Record)
+roty_clean$Artist <- str_trim(roty_clean$Artist)
+
+saveRDS(roty_clean, "roty_clean.RDS")
+write_csv(roty_clean, "roty_clean.csv")
+```
+

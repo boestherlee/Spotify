@@ -1,0 +1,1833 @@
+# GET ALBUM DATA FROM SPOTIFY
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(spotifyr)
+library(tidyverse)
+```
+
+```{r}
+# Get a vector of all the artists that have been nominated for AOTY. We will loop through them below.
+aoty_clean <- readRDS("AOTY/aoty_clean.RDS")
+
+artists <- unique(aoty_clean$Artist)
+```
+
+```{r}
+# The loop below crashes for the following artists, so I need to remove them for now and manually pull them later.
+artists_new <- artists[-c(6, 11, 69, 83, 92, 108, 127, 129, 135, 138, 152, 153, 162, 185, 193, 212, 216)]
+```
+
+## Run Initial Spotify Loop
+```{r}
+################################################################################################################
+# Grab all albums for all of the artists specified above.
+# The function `get_artist_audio_features` was used because it allows us to specify the artist's name
+# rather than having to look up and input their Spotify ID.
+################################################################################################################
+albums <- data.frame()
+for (i in 1:length(artists_new)) {
+    out <- get_artist_audio_features(artist = artists_new[i])
+    albums <- rbind(albums, out)
+}
+```
+
+```{r}
+# Select only the variables of interest
+albums_clean <- cbind(Artist = albums$artist_name,
+                 ID = albums$artist_id,
+                 Album = albums$album_name,
+                 Song = albums$track_name,
+                 Danceability = albums$danceability,
+                 Energy = albums$energy,
+                 Loudness = albums$loudness,
+                 Speechiness = albums$speechiness,
+                 Acousticness = albums$acousticness,
+                 Instrumentalness = albums$instrumentalness,
+                 Liveness = albums$liveness,
+                 Valence = albums$valence,
+                 Tempo = albums$tempo,
+                 Duration = albums$duration_ms,
+                 Explicit = albums$explicit)
+```
+
+```{r}
+# Convert to a data frame
+albums_clean <- as.data.frame(albums_clean)
+```
+
+## Manually Grab the Rest of the Artists
+These are the names of the artists that weren't found in in the initial loop:
+```{r}
+artists[c(6, 11, 69, 83, 92, 108, 127, 129, 135, 138, 152, 153, 162, 185, 193, 212, 216)]
+```
+A few notes:
+
+Ray Charles & Various Artists -- already found relevant album info under Ray Charles
+Quincy Jones & Various Artists  -- already found relevant album info under Quincy Jones
+USA For Africa -- Couldn't find the full album on Spotify.
+The Singing Nun -- Couldn't find the full album on Spotify.
+The Swingle Singers	-- Couldn't find the full album on Spotify.
+Various Artists: Jesus Christ Superstar (London Production) 1972 -- Couldn't find this specific album
+Various Artists: Jesus Christ Superstar (Original Broadway Cast Recording)	1973 -- Couldn't find this specific album
+Ray Charles: genius+soul=jazz	-- Couldn't find the full album on Spotify.
+
+All others are coded below.
+In most cases, I had to look up the relevant album ID on Spotify and pull it directly.
+For a few cases, I was able to use the `get_artist_audio_features` using a simplified name
+(i.e. "Black Eyed Peas" instead of "The Black Eyed Peas")
+```{r}
+# 7 - Lil Nas X
+
+# This pulls every track on the album
+lil_nas_x <- spotifyr::get_album_tracks("4IRiXE5NROxknUSAUSjMoO") 
+lil_nas_x$Artist <- "Lil Nas X"
+lil_nas_x$Album <- "7"
+
+# This (separately) pulls all of the audio features for each song on the album
+audio <- spotifyr::get_track_audio_features(lil_nas_x$id) 
+
+# Join the data together
+lil_nas_x <- left_join(lil_nas_x, audio, by = "id")
+
+# Grab only the relevant variables
+lil_nas_x_clean <- lil_nas_x %>% 
+  select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The Black Eyed Peas
+bep <- get_artist_audio_features("Black Eyed Peas")
+```
+
+```{r}
+# Raising Sand - Robert Plant & Alison Krauss
+robert_plant <- spotifyr::get_album_tracks("54GfJ3ZEY2b6PKmvETmj1n")
+robert_plant$Artist <- "Robert Plant & Alison Krauss"
+robert_plant$Album <- "Raising Sand"
+
+audio <- spotifyr::get_track_audio_features(robert_plant$id)
+
+robert_plant <- left_join(robert_plant, audio, by = "id")
+
+robert_plant_clean <- robert_plant %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The 3 Tenors in Concert 1994 - José Carreras, Plácido Domingo & Luciano Pavarotti with Zubin Mehta
+three_tenors <- spotifyr::get_album_tracks("4M1xaHN4ztbVWmyxPVNibu")
+three_tenors$Artist <- "José Carreras, Plácido Domingo & Luciano Pavarotti with Zubin Mehta"
+three_tenors$Album <- "The 3 Tenors in Concert 1994"
+
+audio <- spotifyr::get_track_audio_features(three_tenors$id)
+
+three_tenors <- left_join(three_tenors, audio, by = "id")
+
+three_tenors_clean <- three_tenors %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The Concert for Bangladesh - George Harrison & Friends
+george_harrison <- spotifyr::get_album_tracks("3tcy7Al4hBYMaIYraZhexu")
+george_harrison$Artist <- "George Harrison & Friends (Ravi Shankar, Bob Dylan, Leon Russell, Ringo Starr, Billy Preston, Eric Clapton & Klaus Voormann)"
+george_harrison$Album <- "The Concert for Bangladesh"
+
+audio <- spotifyr::get_track_audio_features(george_harrison$id)
+
+george_harrison <- left_join(george_harrison, audio, by = "id")
+
+george_harrison_clean <- george_harrison %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The First Family - Vaughn Meader
+vaughn_meader <- get_album_tracks("5QN8u21tWltIeNTqVTmDKV")
+vaughn_meader$Artist <- "Vaughn Meader"
+vaughn_meader$Album <- "The First Family"
+
+audio <- spotifyr::get_track_audio_features(vaughn_meader$id)
+
+vaughn_meader <- left_join(vaughn_meader, audio, by = "id")
+
+vaughn_meader_clean <- vaughn_meader %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Getz/Gilberto - Stan Getz & João Gilberto
+stan_getz <- get_artist_audio_features("Stan Getz")
+```
+
+```{r}
+# Trio - Dolly Parton, Linda Ronstadt, & Emmylou Harris
+trio <- spotifyr::get_album_tracks("1uPjtjcaOwsxwLO7DzwQh2")
+trio$Artist <- "Dolly Parton, Linda Ronstadt, & Emmylou Harris"
+trio$Album <- "Trio"
+
+audio <- spotifyr::get_track_audio_features(trio$id)
+
+trio <- left_join(trio, audio, by = "id")
+
+trio_clean <- trio %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Paul McCartney
+paul_mccartney <- get_artist_audio_features("Paul McCartney")
+```
+
+```{r}
+# John Williams
+john_williams <- get_artist_audio_features("John Williams")
+```
+
+```{r}
+# Great Band with Great Voices - Si Zentner & the Johnny Mann Singers
+si_zentner <- spotifyr::get_album_tracks("52a7wxVQoJuGkoxkp7RMbD")
+si_zentner$Artist <- "Si Zentner & the Johnny Mann Singers"
+si_zentner$Album <- "Great Band with Great Voices"
+
+audio <- spotifyr::get_track_audio_features(si_zentner$id)
+
+si_zentner <- left_join(si_zentner, audio, by = "id")
+
+si_zentner_clean <- si_zentner %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Francis Albert Sinatra & Antonio Carlos Jobim - Frank Sinatra & Antonio Carlos Jobim
+frank_sinatra <- spotifyr::get_album_tracks("0LYpJGx3fHoTmKOtKuMWtQ")
+frank_sinatra$Artist <- "Frank Sinatra & Antonio Carlos Jobim"
+frank_sinatra$Album <- "Francis Albert Sinatra & Antonio Carlos Jobim"
+
+audio <- spotifyr::get_track_audio_features(frank_sinatra$id)
+
+frank_sinatra <- left_join(frank_sinatra, audio, by = "id")
+
+frank_sinatra_clean <- frank_sinatra %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Bind all of the data together for cases where I just used `get_artist_audio_features`
+raw_df <- rbind(bep, stan_getz, paul_mccartney, john_williams)
+
+clean_df_1 <- cbind(Artist = raw_df$artist_name,
+                 Album = raw_df$album_name,
+                 Song = raw_df$track_name,
+                 Danceability = raw_df$danceability,
+                 Energy = raw_df$energy,
+                 Loudness = raw_df$loudness,
+                 Speechiness = raw_df$speechiness,
+                 Acousticness = raw_df$acousticness,
+                 Instrumentalness = raw_df$instrumentalness,
+                 Liveness = raw_df$liveness,
+                 Valence = raw_df$valence,
+                 Tempo = raw_df$tempo,
+                 Duration = raw_df$duration_ms,
+                 Explicit = raw_df$explicit)
+
+clean_df_1 <- as.data.frame(clean_df_1)
+```
+
+```{r}
+# Bind all of the data together for cases where I had to pull a specific album title
+raw_df_2 <- rbind(lil_nas_x_clean, robert_plant_clean, three_tenors_clean, 
+                  george_harrison_clean, vaughn_meader_clean,
+                  trio_clean, si_zentner_clean, frank_sinatra_clean)
+
+clean_df_2 <- cbind(Artist = raw_df_2$Artist,
+                 Album = raw_df_2$Album,
+                 Song = raw_df_2$name,
+                 Danceability = raw_df_2$danceability,
+                 Energy = raw_df_2$energy,
+                 Loudness = raw_df_2$loudness,
+                 Speechiness = raw_df_2$speechiness,
+                 Acousticness = raw_df_2$acousticness,
+                 Instrumentalness = raw_df_2$instrumentalness,
+                 Liveness = raw_df_2$liveness,
+                 Valence = raw_df_2$valence,
+                 Tempo = raw_df_2$tempo,
+                 Duration = raw_df_2$duration_ms.x,
+                 Explicit = raw_df_2$explicit)
+
+clean_df_2 <- as.data.frame(clean_df_2)
+```
+
+```{r}
+# Join everything together
+albums <- rbind(albums, clean_df_1, clean_df_2)
+
+# The loop grabbed a number of duplicates, so I will remove them here
+albums <- distinct(albums)
+```
+-----------
+```{r}
+#I keep getting an error when doing the initial for loop to get albums so I'm uploading your albums csv and adding on missing albums to the csv
+setwd("/Users/bolee/Desktop/QMSS/Spring20/DataViz/Group_R_Spotify")
+albums <- read.csv("Spotify_Albums/albums.csv")
+```
+
+Adding artists from the AOTY dataframe that are missing in the initial pull of the albums dataframe
+
+```{r}
+# Al Hirt
+al_hirt <- get_artist_audio_features("Al Hirt")
+```
+
+```{r}
+# Alanis Morissette
+alanis_morissette <- get_artist_audio_features("Alanis Morissette")
+```
+
+```{r}
+# Alicia Keys
+alicia_keys <- get_artist_audio_features("Alicia Keys")
+```
+
+```{r}
+# Allan Sherman
+allan_sherman <- get_artist_audio_features("Allan Sherman")
+```
+
+```{r}
+# Amy Grant
+amy_grant <- get_artist_audio_features("Amy Grant")
+```
+
+```{r}
+# Amy Winehouse
+amy_winehouse <- get_artist_audio_features("Amy Winehouse")
+```
+
+```{r}
+# Andy Williams
+andy_williams <- get_artist_audio_features("Andy Williams")
+```
+
+```{r}
+# Babyface
+babyface <- get_artist_audio_features("Babyface")
+```
+
+```{r}
+# Barry Manilow
+barry_manilow <- get_artist_audio_features("Barry Manilow")
+```
+
+```{r}
+# Bette Midler
+bette_middler <- get_artist_audio_features("Bette Middler")
+```
+
+```{r}
+# Billy Joel
+billy_joel <- get_artist_audio_features("Billy Joel")
+```
+
+```{r}
+# Blood, Sweat & Tears
+blood_sweat_tears <- get_artist_audio_features("Blood, Sweat & Tears")
+```
+
+```{r}
+# Bob Newhart
+bob_newhart <- get_artist_audio_features("Bob Newhart")
+```
+
+```{r}
+# Bobbie Gentry
+bobbie_gentry <- get_artist_audio_features("bobbie_gentry")
+```
+
+```{r}
+# Bobby McFerrin
+bobby_mcferrin <- get_artist_audio_features("Bobby McFerrin")
+```
+
+```{r}
+# Bonnie Raitt
+bonnie_raitt <- get_artist_audio_features("Bonnie Raitt")
+```
+
+```{r}
+# Boz Scaggs
+boz_scaggs <- get_artist_audio_features("Boz Scaggs")
+```
+
+```{r}
+# Carpenters
+carpenters <- get_artist_audio_features("Carpenters")
+```
+
+```{r}
+# Celine Dion
+celine_dion <- get_artist_audio_features("Celine Dion")
+```
+
+```{r}
+# Charlie Rich
+charlie_rich <- get_artist_audio_features("Charlie Rich")
+```
+
+```{r}
+# Chicago
+chicago <- get_artist_audio_features("chicago")
+```
+
+```{r}
+# Christopher Cross
+christopher_cross <- get_artist_audio_features("Christopher Cross")
+```
+
+```{r}
+# Coldplay
+coldplay <- get_artist_audio_features("Coldplay")
+```
+
+```{r}
+# Crosby, Stills & Nash
+crosby_stills_nash <- get_artist_audio_features("Crosby, Stills & Nash")
+```
+
+```{r}
+# Crosby, Stills, Nash, & Young
+crosby_stills_nash_young <- get_artist_audio_features("Crosby, Stills, Nash, & Young")
+```
+
+```{r}
+# Dire Straits
+dire_straits <- get_artist_audio_features("Dire Straits")
+```
+
+```{r}
+# Don Henley
+don_henley <- get_artist_audio_features("Don Henley")
+```
+
+```{r}
+# Don McLean
+don_mclean <- get_artist_audio_features("Don McLean")
+```
+
+```{r}
+# Donald Fagen
+donald_fagen <- get_artist_audio_features("Donald Fagen")
+```
+
+```{r}
+# Eagles
+eagles <- get_artist_audio_features("Eagles")
+```
+
+```{r}
+# Ed Ames
+ed_ames <- get_artist_audio_features("Ed_Ames")
+```
+
+```{r}
+# Eddy Arnold
+eddy_arnold <- get_artist_audio_features("Eddy Arnold")
+```
+
+```{r}
+# Elton John
+elton_john <- get_artist_audio_features("Elton John")
+``` 	
+
+```{r}
+# Eric Clapton
+eric_clapton <- get_artist_audio_features("Eric Clapton")
+```
+
+```{r}
+# Erich Leinsdorf
+erich_leinsdorf <- get_artist_audio_features("Erich Leinsdorf")
+```
+
+```{r}
+# Fine Young Cannibals
+fine_young_cannibals <- get_artist_audio_features("Fine Young Cannibals")
+```
+
+```{r}
+# Frank Sinatra 
+full_frank_sinatra <- get_artist_audio_features("Frank Sinatra")
+```
+
+```{r}
+# Harry Belafonte	
+harry_belafonte <- get_artist_audio_features("Harry Belafonte")
+```
+
+```{r}
+# James Taylor
+james_taylor <- get_artist_audio_features("James Taylor")
+```
+
+```{r}
+# Kanye West	
+kanye_west <- get_artist_audio_features("Kanye_West")
+```
+
+```{r}
+# Mariah Carey	
+mariah_carey <- get_artist_audio_features("Mariah Carey")
+```
+
+```{r}
+# Michael Jackson	
+michael_jackson <- get_artist_audio_features("Michael Jackson")
+```
+
+```{r}
+# Nat King Cole	
+nat_king_cole <- get_artist_audio_features("Nat King Cole")
+```
+
+```{r}
+# Phil Collins
+phil_collins <- get_artist_audio_features("Phil Collins")
+```
+
+```{r}
+# R.E.M. 
+r_e_m <- get_artist_audio_features("R.E.M.")
+```
+
+```{r}
+# Simon & Garfunkel 
+simon_garfunkel <- get_artist_audio_features("Simon & Garfunkel")
+```
+
+```{r}
+# Steve Winwood
+steve_winwood <- get_artist_audio_features("Steve Winwood")
+```
+
+```{r}
+# Stevie Wonder
+stevie_wonder <- get_artist_audio_features("Stevie Wonder")
+```
+
+```{r}
+# Sting
+sting <- get_artist_audio_features("sting")
+```
+
+```{r}
+# Tony Bennett
+tony_bennett <- get_artist_audio_features("Tony Bennett")
+```
+
+```{r}
+# Van Cliburn
+van_cliburn <- get_artist_audio_features("Van Cliburn")
+```
+
+```{r}
+# Garbage
+garbage <- get_artist_audio_features("Garbage")
+```
+
+```{r}
+# Gnarls Barkley
+gnarls_barkley <- get_artist_audio_features("Gnarls Barkley")
+```
+
+```{r}
+# Green Day
+green_day <- get_artist_audio_features("Green Day")
+```
+
+```{r}
+# Gwen Stefani
+gwen_stefani <- get_artist_audio_features("Gwen Stefani")
+```
+
+```{r}
+# Janice Ian
+janis_ian <- get_artist_audio_features("Janis Ian")
+```
+
+```{r}
+# Joan Osborne
+joan_osborne <- get_artist_audio_features("Joan Osborne")
+```
+
+```{r}
+# Lauryn Hill
+lauryn_hill <- get_artist_audio_features("Lauryn Hill")
+```
+
+```{r}
+# Maurice Jarre
+maurice_jarre <- get_artist_audio_features("Maurice Jarre")
+```
+
+```{r}
+# Nilsson
+nilsson <- get_artist_audio_features("Nilsson")
+```
+
+```{r}
+# Paula Cole
+paula_cole <- get_artist_audio_features("Paula Cole")
+```
+
+```{r}
+# Richard Harris
+richard_harris <- get_artist_audio_features("Richard Harris")
+```
+
+```{r}
+# Robert Russell Bennett
+robert_russell_bennett <- get_artist_audio_features("Robert Russell Bennett")
+```
+
+```{r}
+# Rumours - Fleetwood Mac
+## Spotify only has three different Rumor albums available: 2017 remastered, deluxe and super deluxe. This album ID is from the super deluxe edition of Rumor.
+fleetwood_mac <- spotifyr::get_album_tracks("0BwWUstDMUbgq2NYONRqlu")
+fleetwood_mac$Artist <- "Fleetwood Mac"
+fleetwood_mac$Album <- "Rumours"
+
+audio <- spotifyr::get_track_audio_features(fleetwood_mac$id)
+
+fleetwood_mac <- left_join(fleetwood_mac, audio, by = "id")
+
+fleetwood_mac_clean <- fleetwood_mac %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# All Things Must Pass - George Harrison
+george_harrison_solo <- spotifyr::get_album_tracks("4I4xtHaIFOzhZfp1NIHkY6")
+george_harrison_solo$Artist <- "George Harrison"
+george_harrison_solo$Album <- "All Things Must Pass"
+
+audio <- spotifyr::get_track_audio_features(george_harrison_solo$id)
+
+george_harrison_solo <- left_join(george_harrison_solo, audio, by = "id")
+
+george_harrison_solo_clean <- george_harrison_solo %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Breezin' - George Benson	
+george_benson <- spotifyr::get_album_tracks("1ei5QjnfB7PHINJOH8Gft5")
+george_benson$Artist <- "George Benson"
+george_benson$Album <- "Breezin'"
+
+audio <- spotifyr::get_track_audio_features(george_benson$id)
+
+george_benson <- left_join(george_benson, audio, by = "id")
+
+george_benson_clean <- george_benson %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Faith - George Michael	
+george_michael <- spotifyr::get_album_tracks("34K1Kvskt9arWy8E1Gz3Lw")
+george_michael$Artist <- "George Michael"
+george_michael$Album <- "Faith"
+
+audio <- spotifyr::get_track_audio_features(george_michael$id)
+
+george_michael <- left_join(george_michael, audio, by = "id")
+
+george_michael_clean <- george_michael %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# What Now My Love - Herb Alpert and the Tijuana Brass	
+herb_alpert <- spotifyr::get_album_tracks("5LDqwFbW6XrZtTVnGI8RTN")
+herb_alpert$Artist <- "Herb Alpert and the Tijuana Brass"
+herb_alpert$Album <- "What Now My Love"
+
+audio <- spotifyr::get_track_audio_features(herb_alpert$id)
+
+herb_alpert <- left_join(herb_alpert, audio, by = "id")
+
+herb_alpert_clean <- herb_alpert %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# River: The Joni Letters - Herbie Hancock	
+herbie_hancock <- spotifyr::get_album_tracks("3GwR5VxaMzB01ay6qIT3Yq")
+herbie_hancock$Artist <- "Herbie Hancock"
+herbie_hancock$Album <- "River: The Joni Letters"
+
+audio <- spotifyr::get_track_audio_features(herbie_hancock$id)
+
+herbie_hancock <- left_join(herbie_hancock, audio, by = "id")
+
+herbie_hancock_clean <- herbie_hancock %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Shaft - Issac Hayes	
+issac_hayes <- spotifyr::get_album_tracks("2KIGwFJHrXcyK0VUb5FH9m")
+issac_hayes$Artist <- "Isaac Hayes"
+issac_hayes$Album <- "Shaft"
+
+audio <- spotifyr::get_track_audio_features(issac_hayes$id)
+
+issac_hayes <- left_join(issac_hayes, audio, by = "id")
+
+issac_hayes_clean <- issac_hayes %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Running on Empty - Jackson Browne	
+jackson_browne <- spotifyr::get_album_tracks("24UtAJJRIuHICjdIDqaNhg")
+jackson_browne$Artist <- "Jackson Browne"
+jackson_browne$Album <- "Running on Empty"
+
+audio <- spotifyr::get_track_audio_features(jackson_browne$id)
+
+jackson_browne <- left_join(jackson_browne, audio, by = "id")
+
+jackson_browne_clean <- jackson_browne %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# Control - Janet Jackson
+janet_jackson <- spotifyr::get_album_tracks("7GWkceE5McMVfffd1RGL6Y")
+janet_jackson$Artist <- "Janet Jackson"
+janet_jackson$Album <- "Control"
+
+audio <- spotifyr::get_track_audio_features(janet_jackson$id)
+
+janet_jackson <- left_join(janet_jackson, audio, by = "id")
+
+janet_jackson_clean <- janet_jackson %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# American Fool - John Cougar
+## Name is John Mellencamp on Spotify, went by both names but different in AOTY file
+john_cougar <- spotifyr::get_album_tracks("4gouGcdQn9OvjX42xnWrF0")
+john_cougar$Artist <- "John Cougar"
+john_cougar$Album <- "American Fool"
+
+audio <- spotifyr::get_track_audio_features(john_cougar$id)
+
+john_cougar <- left_join(john_cougar, audio, by = "id")
+
+john_cougar_clean <- john_cougar %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Double Fantasy - John Lennon & Yoko Ono
+lennon_ono <- spotifyr::get_album_tracks("1NWA2fPLUAW5df7UGI5thp")
+lennon_ono$Artist <- "John Lennon & Yoko Ono"
+lennon_ono$Album <- "Double Fantasy"
+
+audio <- spotifyr::get_track_audio_features(lennon_ono$id)
+
+lennon_ono <- left_join(lennon_ono, audio, by = "id")
+
+lennon_ono_clean <- lennon_ono %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Continuum - John Mayer
+john_mayer <- spotifyr::get_album_tracks("1Xsprdt1q9rOzTic7b9zYM")
+john_mayer$Artist <- "John Mayer"
+john_mayer$Album <- "Continuum"
+
+audio <- spotifyr::get_track_audio_features(john_mayer$id)
+
+john_mayer <- left_join(john_mayer, audio, by = "id")
+
+john_mayer_clean <- john_mayer %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# At San Quentin - Johnny Cash
+johnny_cash <- spotifyr::get_album_tracks("6bYqwLMVRQzwPQweVzCiry")
+johnny_cash$Artist <- "Johnny Cash"
+johnny_cash$Album <- "At San Quentin"
+
+audio <- spotifyr::get_track_audio_features(johnny_cash$id)
+
+johnny_cash <- left_join(johnny_cash, audio, by = "id")
+
+johnny_cash_clean <- johnny_cash %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Court and Spark - Joni Mitchell	
+joni_mitchell <- spotifyr::get_album_tracks("2akjxkzFolkeV72Yyv5KrM")
+joni_mitchell$Artist <- "Joni Mitchell"
+joni_mitchell$Album <- "Court and Spark"
+
+audio <- spotifyr::get_track_audio_features(joni_mitchell$id)
+
+joni_mitchell <- left_join(joni_mitchell, audio, by = "id")
+
+joni_mitchell_clean <- joni_mitchell %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Feliciano! - José Feliciano	
+jose_feliciano <- spotifyr::get_album_tracks("2uNZs8gPxog0FALe62yeuO")
+jose_feliciano$Artist <- "José Feliciano"
+jose_feliciano$Album <- "Feliciano!"
+
+audio <- spotifyr::get_track_audio_features(jose_feliciano$id)
+
+jose_feliciano <- left_join(jose_feliciano, audio, by = "id")
+
+jose_feliciano_clean <- jose_feliciano %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Ingenue - k.d. lang		
+kd_lang <- spotifyr::get_album_tracks("1XHEQqyatYvfK5cEJfkPeK")
+kd_lang$Artist <- "k.d. lang"
+kd_lang$Album <- "Ingenue"
+
+audio <- spotifyr::get_track_audio_features(kd_lang$id)
+
+kd_lang <- left_join(kd_lang, audio, by = "id")
+
+kd_lang_clean <- kd_lang %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Tha Carter III - Lil Wayne		
+lil_wayne <- spotifyr::get_album_tracks("5BGzOpea6At0Nd7tYtYZOP")
+lil_wayne$Artist <- "Lil Wayne"
+lil_wayne$Album <- "Tha Carter III"
+
+audio <- spotifyr::get_track_audio_features(lil_wayne$id)
+
+lil_wayne <- left_join(lil_wayne, audio, by = "id")
+
+lil_wayne_clean <- lil_wayne %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Heart Like a Wheel - Linda Ronstadt	
+linda_ronstadt <- spotifyr::get_album_tracks("7upKDUGJUjsvfIe6vuVB0b")
+linda_ronstadt$Artist <- "Linda Ronstadt"
+linda_ronstadt$Album <- "Heart Like a Wheel"
+
+audio <- spotifyr::get_track_audio_features(linda_ronstadt$id)
+
+linda_ronstadt <- left_join(linda_ronstadt, audio, by = "id")
+
+linda_ronstadt_clean <- linda_ronstadt %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Can't Slow Down - Lionel Richie	
+lionel_richie <- spotifyr::get_album_tracks("3alZBOvPaK3hgMEEymw4Yr")
+lionel_richie$Artist <- "Lionel Richie"
+lionel_richie$Album <- "Can't Slow Down"
+
+audio <- spotifyr::get_track_audio_features(lionel_richie$id)
+
+lionel_richie <- left_join(lionel_richie, audio, by = "id")
+
+lionel_richie_clean <- lionel_richie %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# Ray of Light - Madonna	
+madonna <- spotifyr::get_album_tracks("6cuNyrSmRjBeekioLdLkvI")
+madonna$Artist <- "Madonna"
+madonna$Album <- "Ray of Light"
+
+audio <- spotifyr::get_track_audio_features(madonna$id)
+
+madonna <- left_join(madonna, audio, by = "id")
+
+madonna_clean <- madonna %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# Please Hammer Don't Hurt 'Em - MC Hammer
+mc_hammer <- spotifyr::get_album_tracks("4r1WecJyt5FOhglysp9zhN")
+mc_hammer$Artist <- "MC Hammer"
+mc_hammer$Album <- "Please Hammer Don't Hurt 'Em"
+
+audio <- spotifyr::get_track_audio_features(mc_hammer$id)
+
+mc_hammer <- left_join(mc_hammer, audio, by = "id")
+
+mc_hammer_clean <- mc_hammer %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Unforgettable... with Love - Natalie Cole
+natalie_cole <- spotifyr::get_album_tracks("3Z4DrrPcAsTWOhDelLNwrK")
+natalie_cole$Artist <- "Natalie Cole"
+natalie_cole$Album <- "Unforgettable... with Love"
+
+audio <- spotifyr::get_track_audio_features(natalie_cole$id)
+
+natalie_cole <- left_join(natalie_cole, audio, by = "id")
+
+natalie_cole_clean <- natalie_cole %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Year of the Gentleman - Ne-Yo	
+neyo <- spotifyr::get_album_tracks("6dTn9vJSxVTIGm4Cu5dH4x")
+neyo$Artist <- "Ne-Yo"
+neyo$Album <- "Year of the Gentleman"
+
+audio <- spotifyr::get_track_audio_features(neyo$id)
+
+neyo <- left_join(neyo, audio, by = "id")
+
+neyo_clean <- neyo %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Moods - Neil Diamond
+neil_diamond <- spotifyr::get_album_tracks("3m4xJJDmVNzsWaJ6OlLTru")
+neil_diamond$Artist <- "Neil Diamond"
+neil_diamond$Album <- "Moods"
+
+audio <- spotifyr::get_track_audio_features(neil_diamond$id)
+
+neil_diamond <- left_join(neil_diamond, audio, by = "id")
+
+neil_diamond_clean <- neil_diamond %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Vitalogy - Pearl Jam
+pearl_jam <- spotifyr::get_album_tracks("5pd9B3KQWKshHw4lnsSLNy")
+pearl_jam$Artist <- "Pearl Jam"
+pearl_jam$Album <- "Vitalogy"
+
+audio <- spotifyr::get_track_audio_features(pearl_jam$id)
+
+pearl_jam <- left_join(pearl_jam, audio, by = "id")
+
+pearl_jam_clean <- pearl_jam %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# Frampton Comes Alive! - Peter Frampton
+peter_frampton <- spotifyr::get_album_tracks("5HmHuAG1kzTqK1N6Ne4zyV")
+peter_frampton$Artist <- "Peter Frampton"
+peter_frampton$Album <- "Frampton Comes Alive!"
+
+audio <- spotifyr::get_track_audio_features(peter_frampton$id)
+
+peter_frampton <- left_join(peter_frampton, audio, by = "id")
+
+peter_frampton_clean <- peter_frampton %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# So - Peter Gabriel	
+peter_gabriel <- spotifyr::get_album_tracks("1vJ8rCzq6BJtKGz9Yf6oT3")
+peter_gabriel$Artist <- "Peter Gabriel"
+peter_gabriel$Album <- "So"
+
+audio <- spotifyr::get_track_audio_features(peter_gabriel$id)
+
+peter_gabriel <- left_join(peter_gabriel, audio, by = "id")
+
+peter_gabriel_clean <- peter_gabriel %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Stadium Arcadium - Red Hot Chili Peppers
+rhcp <- spotifyr::get_album_tracks("7xl50xr9NDkd3i2kBbzsNZ")
+rhcp$Artist <- "Red Hot Chili Peppers"
+rhcp$Album <- "Stadium Arcadium"
+
+audio <- spotifyr::get_track_audio_features(rhcp$id)
+
+rhcp <- left_join(rhcp, audio, by = "id")
+
+rhcp_clean <- rhcp %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Killing Me Softly - Roberta Flack
+roberta_flack <- spotifyr::get_album_tracks("4GxrvKiysSiDU1HHifh1PA")
+roberta_flack$Artist <- "Roberta Flack"
+roberta_flack$Album <- "Killing Me Softly"
+
+audio <- spotifyr::get_track_audio_features(roberta_flack$id)
+
+roberta_flack <- left_join(roberta_flack, audio, by = "id")
+
+roberta_flack_clean <- roberta_flack %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Seal - Seal
+seal <- spotifyr::get_album_tracks("1mSECpFqHRW6leG4idqTE1")
+seal$Artist <- "Seal"
+seal$Album <- "Seal"
+
+audio <- spotifyr::get_track_audio_features(seal$id)
+
+seal <- left_join(seal, audio, by = "id")
+
+seal_clean <- seal %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Come on Over - Shania Twain	
+shania_twain <- spotifyr::get_album_tracks("4UMe0Ods7kygK6OISasZe9")
+shania_twain$Artist <- "Shania Twain"
+shania_twain$Album <- "Come on Over"
+
+audio <- spotifyr::get_track_audio_features(shania_twain$id)
+
+shania_twain <- left_join(shania_twain, audio, by = "id")
+
+shania_twain_clean <- shania_twain %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The Globe Sessions - Sheryl Crow	
+sheryl_crow <- spotifyr::get_album_tracks("08enrSAkHTYkQwhRlKXQgB")
+sheryl_crow$Artist <- "Sheryl Crow"
+sheryl_crow$Album <- "The Globe Sessions"
+
+audio <- spotifyr::get_track_audio_features(sheryl_crow$id)
+
+sheryl_crow <- left_join(sheryl_crow, audio, by = "id")
+
+sheryl_crow_clean <- sheryl_crow %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Brahms: Concerto No. 2 in B-Flat - Sviatoslav Richter
+s_richter <- spotifyr::get_album_tracks("7lujnnMMa40f9xfQsUWB8D")
+s_richter$Artist <- "Sviatoslav Richter"
+s_richter$Album <- "Brahms: Concerto No. 2 in B-Flat"
+
+audio <- spotifyr::get_track_audio_features(s_richter$id)
+
+s_richter <- left_join(s_richter, audio, by = "id")
+
+s_richter_clean <- s_richter %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# The Age of Aquarius - The 5th Dimension
+the_dimension <- spotifyr::get_album_tracks("1kVipwgtVNAaHM7Py341Ch")
+the_dimension$Artist <- "The 5th Dimension"
+the_dimension$Album <- "The Age of Aquarius"
+
+audio <- spotifyr::get_track_audio_features(the_dimension$id)
+
+the_dimension <- left_join(the_dimension, audio, by = "id")
+
+the_dimension_clean <- the_dimension %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The Score - The Fugees
+the_fugees <- spotifyr::get_album_tracks("18XFe4CPBgVezXkxZP6rTb")
+the_fugees$Artist <- "The Fugees"
+the_fugees$Album <- "The Score"
+
+audio <- spotifyr::get_track_audio_features(the_fugees$id)
+
+the_fugees <- left_join(the_fugees, audio, by = "id")
+
+the_fugees_clean <- the_fugees %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Some Girls - The Rolling Stones
+the_rolling_stone <- spotifyr::get_album_tracks("1Jv2AqzhgsduUik2p4k3cS")
+the_rolling_stone$Artist <- "The Rolling Stones"
+the_rolling_stone$Album <- "Some Girls"
+
+audio <- spotifyr::get_track_audio_features(the_rolling_stone$id)
+
+the_rolling_stone <- left_join(the_rolling_stone, audio, by = "id")
+
+the_rolling_stone_clean <- the_rolling_stone %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Mellon Collie and the Infinite Sadness - The Smashing Pumpkins	
+smashing_pumpkins <- spotifyr::get_album_tracks("55RhFRyQFihIyGf61MgcfV")
+smashing_pumpkins$Artist <- "The Smashing Pumpkins"
+smashing_pumpkins$Album <- "Mellon Collie and the Infinite Sadness"
+
+audio <- spotifyr::get_track_audio_features(smashing_pumpkins$id)
+
+smashing_pumpkins <- left_join(smashing_pumpkins, audio, by = "id")
+
+smashing_pumpkins_clean <- smashing_pumpkins %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Full Moon Fever- Tom Petty	
+tom_petty <- spotifyr::get_album_tracks("5d71Imt5CIb7LpQwDMQ093")
+tom_petty$Artist <- "Tom Petty"
+tom_petty$Album <- "Full Moon Fever"
+
+audio <- spotifyr::get_track_audio_features(tom_pettys$id)
+
+tom_petty <- left_join(tom_petty, audio, by = "id")
+
+tom_petty_clean <- tom_petty %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Toto IV - Toto	
+toto <- spotifyr::get_album_tracks("62U7xIHcID94o20Of5ea4D")
+toto$Artist <- "Toto"
+toto$Album <- "Toto IV"
+
+audio <- spotifyr::get_track_audio_features(toto$id)
+
+toto <- left_join(toto, audio, by = "id")
+
+toto_clean <- toto %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# The Bodyguard - Whitney Houston
+whitney <- spotifyr::get_album_tracks("7JVJlkNNobS0GSoy4tCS96")
+whitney$Artist <- "Whitney Houston"
+whitney$Album <- "The Bodyguard"
+
+audio <- spotifyr::get_track_audio_features(whitney$id)
+whitney <- left_join(whitney, audio, by = "id")
+
+whitney_clean <- whitney %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Tracy Chapman	 - Tracy Chapman	
+tracy_chapman <- spotifyr::get_album_tracks("6hmmX5UP4rIvOpGSaPerV8")
+tracy_chapman$Artist <- "Tracy Chapman"
+tracy_chapman$Album <- "Tracy Chapman"
+
+audio <- spotifyr::get_track_audio_features(tracy_chapman$id)
+tracy_chapman <- left_join(tracy_chapman, audio, by = "id")
+
+tracy_chapman_clean <- tracy_chapman %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Confessions - Usher
+usher <- spotifyr::get_album_tracks("1RM6MGv6bcl6NrAG8PGoZk")
+usher$Artist <- "Usher"
+usher$Album <- "Confessions"
+
+audio <- spotifyr::get_track_audio_features(usher$id)
+usher <- left_join(usher, audio, by = "id")
+
+usher_clean <- usher %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# It Must Be Him - Vikki Carr
+vikki_carr <- spotifyr::get_album_tracks("77ECOoesygcTfXRhn4rteH")
+vikki_carr$Artist <- "Vikki Carr"
+vikki_carr$Album <- "It Must Be Him"
+
+audio <- spotifyr::get_track_audio_features(vikki_carr$id)
+vikki_carr <- left_join(vikki_carr, audio, by = "id")
+
+vikki_carr_clean <- vikki_carr %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Wilson Phillips	 - Wilson Phillips
+wilson_phillips <- spotifyr::get_album_tracks("1Xi55xFMaymXdSWshmxhw2")
+wilson_phillips$Artist <- "Wilson Phillips"
+wilson_phillips$Album <- "Wilson Phillips"
+
+audio <- spotifyr::get_track_audio_features(wilson_phillips$id)
+wilson_phillips <- left_join(wilson_phillips, audio, by = "id")
+
+wilson_phillips_clean <- wilson_phillips %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Black Panther: The Album, Music from and Inspired By - 2019
+black_panther <- spotifyr::get_album_tracks("3pLdWdkj83EYfDN6H2N8MR")
+black_panther$Artist <- "Various Artists"
+black_panther$Album <- "Black Panther: The Album, Music from and Inspired By"
+
+audio <- spotifyr::get_track_audio_features(black_panther$id)
+black_panther <- left_join(black_panther, audio, by = "id")
+
+black_panther_clean <- black_panther %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - O Brother, Where Art Thou? Soundtrack - 2002
+o_brother <- spotifyr::get_album_tracks("7gzX88qS3Vx2r87g5pbdfJ")
+o_brother$Artist <- "Various Artists"
+o_brother$Album <- "O Brother, Where Art Thou? Soundtrack"
+
+audio <- spotifyr::get_track_audio_features(o_brother$id)
+o_brother <- left_join(o_brother, audio, by = "id")
+
+o_brother_clean <- o_brother %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Beauty and the Beast - 1993
+beauty_beast <- spotifyr::get_album_tracks("3O5p9VNddbwvqWTdYKEqV5")
+
+beauty_beast$Artist <- "Various Artists"
+beauty_beast$Album <- "Beauty and the Beast"
+
+audio <- spotifyr::get_track_audio_features(beauty_beast$id)
+beauty_beast <- left_join(beauty_beast, audio, by = "id")
+
+beauty_beast_clean <- beauty_beast %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Waiting to Exhale: Original Soundtrack Album - 1997
+waiting_exhale <- spotifyr::get_album_tracks("2EHFZkzTbRFDt1tomCBToM")
+
+waiting_exhale$Artist <- "Various Artists"
+waiting_exhale$Album <- "Waiting to Exhale: Original Soundtrack Album"
+
+audio <- spotifyr::get_track_audio_features(waiting_exhale$id)
+waiting_exhale <- left_join(waiting_exhale, audio, by = "id")
+
+waiting_exhale_clean <- waiting_exhale %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# Various Artists - West Side Story Soundtrack - 1962
+west_side <- spotifyr::get_album_tracks("1kA4RO70idrEQkOX3zlRfa")
+
+west_side$Artist <- "Various Artists"
+west_side$Album <- "West Side Story Soundtrack"
+
+audio <- spotifyr::get_track_audio_features(west_side$id)
+west_side <- left_join(west_side, audio, by = "id")
+
+west_side_clean <- west_side %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	 
+```{r}
+# Various Artists - Funny Girl (Original Broadway Cast Recording) - 1965
+funny_girl <- spotifyr::get_album_tracks("0G8qWYPobQUV9wDm2XABPp")
+
+funny_girl$Artist <- "Various Artists"
+funny_girl$Album <- "Funny Girl (Original Broadway Cast Recording)"
+
+audio <- spotifyr::get_track_audio_features(funny_girl$id)
+funny_girl <- left_join(funny_girl, audio, by = "id")
+
+funny_girl_clean <- funny_girl %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - The Sound of Music Soundtrack - 1996
+sound_music <- spotifyr::get_album_tracks("583SgyGBxtEzsk9J8zBqiy")
+
+sound_music$Artist <- "Various Artists"
+sound_music$Album <- "The Sound of Music Soundtrack"
+
+audio <- spotifyr::get_track_audio_features(sound_music$id)
+sound_music <- left_join(sound_music, audio, by = "id")
+
+sound_music_clean <- sound_music %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Grease Original Soundtrack Album - 1979
+grease <- spotifyr::get_album_tracks("5n47Dui0H3pGpZSOxITmoq")
+
+grease$Artist <- "Various Artists"
+grease$Album <- "Grease Original Soundtrack Album"
+
+audio <- spotifyr::get_track_audio_features(grease$id)
+grease <- left_join(grease, audio, by = "id")
+
+grease_clean <- grease %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Flashdance Soundtrack - 1984
+flashdance <- spotifyr::get_album_tracks("3R6Z3Hp8EMdhgkA5t89NiL")
+
+flashdance$Artist <- "Various Artists"
+flashdance$Album <- "Flashdance Soundtrack"
+
+audio <- spotifyr::get_track_audio_features(flashdance$id)
+flashdance <- left_join(flashdance, audio, by = "id")
+
+flashdance_clean <- flashdance %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Various Artists - Saturday Night Fever Soundtrack - 1979
+saturday_night <- spotifyr::get_album_tracks("3xaCKtqadm4KnviPFKEjs7")
+
+saturday_night$Artist <- "Various Artists"
+saturday_night$Album <- "Saturday Night Fever Soundtrack"
+
+audio <- spotifyr::get_track_audio_features(saturday_night$id)
+saturday_night <- left_join(saturday_night, audio, by = "id")
+
+saturday_night_clean <- saturday_night %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Private Dancer - Tina Turner
+tina_turner <- spotifyr::get_album_tracks("7gVHUNPQr0AE2A0Yf5MjqR")
+tina_turner$Artist <- "Tina Turner"
+tina_turner$Album <- "Private Dancer"
+
+audio <- spotifyr::get_track_audio_features(tina_turner$id)
+
+tina_turner <- left_join(tina_turner, audio, by = "id")
+
+tina_turner_clean <- tina_turner %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Supernatural - Santana
+santana <- spotifyr::get_album_tracks("10aiDpdFGyfCFEcqpx6XTq")
+santana$Artist <- "Santana"
+santana$Album <- "Supernatural"
+
+audio <- spotifyr::get_track_audio_features(santana$id)
+
+santana <- left_join(santana, audio, by = "id")
+
+santana_clean <- santana %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# september of my years - Frank Sinatra
+franksin_2 <- spotifyr::get_album_tracks("3DdN3GRJj8YS0V0fiyXtbt")
+franksin_2$Artist <- "Frank Sinatra"
+franksin_2$Album <- "september of my years"
+
+audio <- spotifyr::get_track_audio_features(franksin_2$id)
+
+franksin_2 <- left_join(franksin_2, audio, by = "id")
+
+franksin_2_clean <- franksin_2 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Trilogy: Past Present Future - Frank Sinatra
+franksin_1 <- spotifyr::get_album_tracks("4Cv61B08yHx3fwkylkhCxe")
+franksin_1$Artist <- "Frank Sinatra"
+franksin_1$Album <- "Trilogy: Past Present Future"
+
+audio <- spotifyr::get_track_audio_features(franksin_1$id)
+
+franksin_1 <- left_join(franksin_1, audio, by = "id")
+
+franksin_1_clean <- franksin_1 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# nice 'n' easy - Frank Sinatra
+franksin_3 <- spotifyr::get_album_tracks("2Xp6c8OMMolIoix6KLyun2")
+franksin_3$Artist <- "Frank Sinatra"
+franksin_3$Album <- "nice 'n' easy"
+
+audio <- spotifyr::get_track_audio_features(franksin_3$id)
+
+franksin_3 <- left_join(franksin_3, audio, by = "id")
+
+franksin_3_clean <- franksin_3 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+	
+```{r}
+# frank sinatra sings for only the lonely - Frank Sinatra
+franksin_4 <- spotifyr::get_album_tracks("0xV0zM1RVaVQ8LaUp6bLWR")
+franksin_4$Artist <- "Frank Sinatra"
+franksin_4$Album <- "frank sinatra sings for only the lonely"
+
+audio <- spotifyr::get_track_audio_features(franksin_4$id)
+
+franksin_4 <- left_join(franksin_4, audio, by = "id")
+
+franksin_4_clean <- franksin_4 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# come fly with me - Frank Sinatra
+franksin_5 <- spotifyr::get_album_tracks("66v9QmjAj0Wwhh2OpbU4BE")
+franksin_5$Artist <- "Frank Sinatra"
+franksin_5$Album <- "come fly with me"
+
+audio <- spotifyr::get_track_audio_features(franksin_4$id)
+
+franksin_5 <- left_join(franksin_5, audio, by = "id")
+
+franksin_5_clean <- franksin_5 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# come dance with me! - Frank Sinatra
+franksin_6 <- spotifyr::get_album_tracks("2XgFfM6SNKtNLGcN3joZro")
+franksin_6$Artist <- "Frank Sinatra"
+franksin_6$Album <- "come dance with me!"
+
+audio <- spotifyr::get_track_audio_features(franksin_6$id)
+
+franksin_6 <- left_join(franksin_6, audio, by = "id")
+
+franksin_6_clean <- franksin_6 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# déjà vu - Crosby, Stills, Nash and Young
+crosby_young <- spotifyr::get_album_tracks("5bHkK1X4WEOzNvRhehvOcb")
+crosby_young$Artist <- "Crosby, Stills, Nash and Young"
+crosby_young$Album <- "déjà vu"
+
+audio <- spotifyr::get_track_audio_features(crosby_young$id)
+
+crosby_young <- left_join(crosby_young, audio, by = "id")
+
+crosby_young_clean <- crosby_young %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# i.i - Bon Iver
+bon_iver <- spotifyr::get_album_tracks("54DU59anGQsdrFP7utpshG")
+bon_iver$Artist <- "Bon Iver"
+bon_iver$Album <- "i, i"
+
+audio <- spotifyr::get_track_audio_features(bon_iver$id)
+
+bon_iver <- left_join(bon_iver, audio, by = "id")
+
+bon_iver_clean <- bon_iver %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# i.i - Bon Iver
+bon_iver <- spotifyr::get_album_tracks("54DU59anGQsdrFP7utpshG")
+bon_iver$Artist <- "Bon Iver"
+bon_iver$Album <- "cuz i love you (deluxe)"
+
+audio <- spotifyr::get_track_audio_features(bon_iver$id)
+
+bon_iver <- left_join(bon_iver, audio, by = "id")
+
+bon_iver_clean <- bon_iver %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# morning phase - Beck
+beck <- spotifyr::get_album_tracks("2Qx7dgA5VjX8JDQaXVxzHu")
+beck$Artist <- "Beck"
+beck$Album <- "morning phase"
+
+audio <- spotifyr::get_track_audio_features(beck$id)
+
+beck <- left_join(beck, audio, by = "id")
+
+beck_clean <- beck %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# midnite vultures	- Beck 
+beck_2 <- spotifyr::get_album_tracks("5Mk8LGoWoPg0igqQXprzfR")
+beck_2$Artist <- "Beck"
+beck_2$Album <- "midnite vultures"
+
+audio <- spotifyr::get_track_audio_features(beck_2$id)
+
+beck_2 <- left_join(beck_2, audio, by = "id")
+
+beck_2_clean <- beck_2 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# beyoncé - Beyoncé  
+beyonce <- spotifyr::get_album_tracks("2UJwKSBUz6rtW4QLK74kQu")
+beyonce$Artist <- "Beyoncé "
+beyonce$Album <- "beyoncé"
+
+audio <- spotifyr::get_track_audio_features(beyonce$id)
+
+beyonce <- left_join(beyonce, audio, by = "id")
+
+beyonce_clean <- beyonce %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# x - Ed Sheeran 
+ed_sheeran <- spotifyr::get_album_tracks("1xn54DMo2qIqBuMqHtUsFd")
+ed_sheeran$Artist <- "Ed Sheeran "
+ed_sheeran$Album <- "x"
+
+audio <- spotifyr::get_track_audio_features(ed_sheeran$id)
+
+ed_sheeran <- left_join(ed_sheeran, audio, by = "id")
+
+ed_sheeran_clean <- ed_sheeran %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# purpose - Justin Bieber 
+justin_b <- spotifyr::get_album_tracks("6Fr2rQkZ383FcMqFyT7yPr")
+justin_b$Artist <- "Justin Bieber"
+justin_b$Album <- "purpose"
+
+audio <- spotifyr::get_track_audio_features(justin_b$id)
+
+justin_b <- left_join(justin_b, audio, by = "id")
+
+justin_b_clean <- justin_b %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# traveling wilburys vol. 1 -	Traveling Wilburys 
+travel <- spotifyr::get_album_tracks("7K3OJcdtRxv7miXfQBzvbi")
+travel$Artist <- "Traveling Wilburys"
+travel$Album <- "traveling wilburys vol. 1"
+
+audio <- spotifyr::get_track_audio_features(travel$id)
+
+travel <- left_join(travel, audio, by = "id")
+
+travel_clean <- travel %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# ...but seriously	- Phil Collins 
+phil <- spotifyr::get_album_tracks("2sS9l8uc3d3UsK9unJyrD8")
+phil$Artist <- "Phil Collins"
+phil$Album <- "...but seriously"
+
+audio <- spotifyr::get_track_audio_features(phil$id)
+
+phil <- left_join(phil, audio, by = "id")
+
+phil_clean <- phil %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# odelay - Beck 
+beck3 <- spotifyr::get_album_tracks("3VCaLNEZTCVRwB8fIpmuM7")
+beck3$Artist <- "Beck "
+beck3$Album <- "odelay"
+
+audio <- spotifyr::get_track_audio_features(beck3$id)
+
+beck3 <- left_join(beck3, audio, by = "id")
+
+beck3_clean <- beck3 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# sgt. pepper's lonely hearts club band - The Beatles 
+sgt <- spotifyr::get_album_tracks("6QaVfG1pHYl1z15ZxkvVDW")
+sgt$Artist <- "The Beatles"
+sgt$Album <- "sgt. pepper's lonely hearts club band"
+
+audio <- spotifyr::get_track_audio_features(sgt$id)
+
+sgt <- left_join(sgt, audio, by = "id")
+
+sgt_clean <- sgt %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# by the time i get to phoenix	- Glen Campbell	
+gc <- spotifyr::get_album_tracks("29tTA46kurlOioRkjBqOMS")
+gc$Artist <- "Glen Campbell"
+gc$Album <- "by the time i get to phoenix"
+
+audio <- spotifyr::get_track_audio_features(gc$id)
+
+gc <- left_join(gc, audio, by = "id")
+
+gc_clean <- gc %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# no jacket required -	Phil Collins	
+pc <- spotifyr::get_album_tracks("1rVhockt4RAiZFaK3M3zPB")
+pc$Artist <- "Phil Collins	"
+pc$Album <- "no jacket required"
+
+audio <- spotifyr::get_track_audio_features(pc$id)
+
+pc <- left_join(pc, audio, by = "id")
+
+pc_clean <- pc %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# graceland	 - Paul Simon 
+ps <- spotifyr::get_album_tracks("6WgGWYw6XXQyLTsWt7tXky")
+ps$Artist <- "Paul Simon"
+ps$Album <- "graceland"
+
+audio <- spotifyr::get_track_audio_features(ps$id)
+
+ps <- left_join(ps, audio, by = "id")
+
+ps_clean <- ps %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# help! - The Beatles 
+beatles <- spotifyr::get_album_tracks("0PT5m6hwPRrpBwIHVnvbFX")
+beatles$Artist <- "The Beatles"
+beatles$Album <- "help!"
+
+audio <- spotifyr::get_track_audio_features(beatles$id)
+
+beatles <- left_join(beatles, audio, by = "id")
+
+beatles_clean <- beatles %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# revolver	 - The Beatles 
+beatles1 <- spotifyr::get_album_tracks("3PRoXYsngSwjEQWR5PsHWR")
+beatles1$Artist <- "The Beatles"
+beatles1$Album <- "revolver"
+
+audio <- spotifyr::get_track_audio_features(beatles1$id)
+
+beatles1 <- left_join(beatles1, audio, by = "id")
+
+beatles1_clean <- beatles1 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# abbey road	The Beatles 
+beatles2 <- spotifyr::get_album_tracks("0ETFjACtuP2ADo6LFhL6HN")
+beatles2$Artist <- "The Beatles"
+beatles2$Album <- "abbey road"
+
+audio <- spotifyr::get_track_audio_features(beatles2$id)
+
+beatles2 <- left_join(beatles2, audio, by = "id")
+
+beatles2_clean <- beatles2 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# magical mystery tour	The Beatles 
+beatles3 <- spotifyr::get_album_tracks("2BtE7qm1qzM80p9vLSiXkj")
+beatles3$Artist <- "The Beatles"
+beatles3$Album <- "magical mystery tour"
+
+audio <- spotifyr::get_track_audio_features(beatles3$id)
+
+beatles3 <- left_join(beatles3, audio, by = "id")
+
+beatles3_clean <- beatles3 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# sweet baby james - James Taylor 
+james_t <- spotifyr::get_album_tracks("1HiG0ukRmFPN13EVcf98Jx")
+james_t$Artist <- "James Taylor"
+james_t$Album <- "sweet baby james"
+
+audio <- spotifyr::get_track_audio_features(james_t$id)
+
+james_t <- left_join(james_t, audio, by = "id")
+
+james_t_clean <- james_t %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# between the lines	 Janis Ian 
+janis <- spotifyr::get_album_tracks("6RjDm4cjV3MFndKrpLUxpO")
+janis$Artist <- "Janis Ian "
+janis$Album <- "between the lines"
+
+audio <- spotifyr::get_track_audio_features(janis$id)
+
+janis <- left_join(janis, audio, by = "id")
+
+janis_clean <- janis %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# one of these nights	- eagles 
+eagles <- spotifyr::get_album_tracks("0F77QekrNe8vVAjU2sepja")
+eagles$Artist <- "Eagles"
+eagles$Album <- "one of these nights"
+
+audio <- spotifyr::get_track_audio_features(eagles$id)
+
+eagles <- left_join(eagles, audio, by = "id")
+
+eagles_clean <- eagles %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# hotel california -	eagles 
+eagles2 <- spotifyr::get_album_tracks("2widuo17g5CEC66IbzveRu")
+eagles2$Artist <- "Eagles"
+eagles2$Album <- "hotel california"
+
+audio <- spotifyr::get_track_audio_features(eagles2$id)
+
+eagles2 <- left_join(eagles2, audio, by = "id")
+
+eagles2_clean <- eagles2 %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# let's dance david bowie 
+david_bowie <- spotifyr::get_album_tracks("4NwG11AsDJluT732lSjMrV")
+david_bowie$Artist <- "David Bowie"
+david_bowie$Album <- "let's dance"
+
+audio <- spotifyr::get_track_audio_features(david_bowie$id)
+
+david_bowie <- left_join(david_bowie, audio, by = "id")
+
+david_bowie_clean <- david_bowie %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# synchronicity the police 
+police <- spotifyr::get_album_tracks("5W9OT0a5iZlBr83a9WMKFY")
+police$Artist <- "The Police"
+police$Album <- "synchronicity"
+
+audio <- spotifyr::get_track_audio_features(police$id)
+
+police <- left_join(police, audio, by = "id")
+
+police_clean <- police %>% select(-c(artists:disc_number, href:is_local, preview_url:external_urls.spotify, type.y:time_signature))
+```
+
+```{r}
+# Bind all of the data together for cases where I just used `get_artist_audio_features`
+raw_df_3 <- rbind(robert_russell_bennett, richard_harris, paula_cole, nilsson, maurice_jarre, lauryn_hill, joan_osborne, janis_ian, gwen_stefani, green_day, gnarls_barkley, garbage, fine_young_cannibals, elton_john, eric_clapton, full_frank_sinatra, harry_belafonte, james_taylor, kanye_west, mariah_carey, michael_jackson, nat_king_cole, phil_collins, r_e_m, simon_garfunkel, steve_winwood, stevie_wonder, sting, tony_bennett, van_cliburn, whitney_houston, erich_leinsdorf, eddy_arnold, ed_ames, eagles, donald_fagen, don_mclean, don_henley, dire_straits, crosby_stills_nash, crosby_stills_nash_young, coldplay, christopher_cross, charlie_rich, celine_dion, carpenters, boz_scaggs, bonnie_raitt, bobby_mcferrin, bobbie_gentry, bob_newhart, blood_sweat_tears, billy_joel, bette_middler, barry_manilow, babyface, andy_williams, amy_winehouse, amy_grant, allan_sherman, alicia_keys, alanis_morissette, al_hirt, chicago)
+
+clean_df_3 <- cbind(Artist = raw_df_3$artist_name,
+                 Album = raw_df_3$album_name,
+                 Song = raw_df_3$track_name,
+                 Danceability = raw_df_3$danceability,
+                 Energy = raw_df_3$energy,
+                 Loudness = raw_df_3$loudness,
+                 Speechiness = raw_df_3$speechiness,
+                 Acousticness = raw_df_3$acousticness,
+                 Instrumentalness = raw_df_3$instrumentalness,
+                 Liveness = raw_df_3$liveness,
+                 Valence = raw_df_3$valence,
+                 Tempo = raw_df_3$tempo,
+                 Duration = raw_df_3$duration_ms,
+                 Explicit = raw_df_3$explicit)
+
+clean_df_3 <- as.data.frame(clean_df_3)
+```
+
+```{r}
+raw_df_4 <- rbind(fleetwood_mac_clean, george_harrison_solo_clean, george_benson_clean, george_michael_clean, herb_alpert_clean, herbie_hancock_clean, issac_hayes_clean, jackson_browne_clean, janet_jackson_clean, john_cougar_clean, lennon_ono_clean, john_mayer_clean, johnny_cash_clean, joni_mitchell_clean, jose_feliciano_clean, kd_lang_clean, lil_wayne_clean, linda_ronstadt_clean, lionel_richie_clean, madonna_clean, mc_hammer_clean, natalie_cole_clean, neyo_clean, neil_diamond_clean, pearl_jam_clean, peter_frampton_clean, peter_gabriel_clean, rhcp_clean, roberta_flack_clean, seal_clean, shania_twain_clean, sheryl_crow_clean, s_richter_clean, the_dimension_clean, the_fugees_clean, the_rolling_stone_clean, smashing_pumpkins_clean, tom_petty_clean, toto_clean, tracy_chapman_clean, usher_clean, vikki_carr_clean, wilson_phillips_clean, black_panther_clean, o_brother_clean, beauty_beast_clean,  waiting_exhale_clean, west_side_clean, funny_girl_clean, sound_music_clean, grease_clean, flashdance_clean, saturday_night_clean, whitney_clean, tina_turner_clean, santana_clean, franksin_1_clean, franksin_2_clean, franksin_3_clean, franksin_4_clean, franksin_5_clean, franksin_6_clean, crosby_young_clean,bon_iver_clean, beck_clean, beck_2_clean, beyonce_clean, ed_sheeran_clean, justin_b_clean, travel_clean, phil_clean, beck3_clean, sgt_clean, gc_clean, pc_clean, ps_clean, beatles_clean, beatles1_clean, beatles2_clean, beatles3_clean, james_t_clean, janis_clean, eagles_clean, eagles2_clean, david_bowie_clean, police_clean)
+
+clean_df_4 <- cbind(Artist = raw_df_4$Artist,
+                 Album = raw_df_4$Album,
+                 Song = raw_df_4$name,
+                 Danceability = raw_df_4$danceability,
+                 Energy = raw_df_4$energy,
+                 Loudness = raw_df_4$loudness,
+                 Speechiness = raw_df_4$speechiness,
+                 Acousticness = raw_df_4$acousticness,
+                 Instrumentalness = raw_df_4$instrumentalness,
+                 Liveness = raw_df_4$liveness,
+                 Valence = raw_df_4$valence,
+                 Tempo = raw_df_4$tempo,
+                 Duration = raw_df_4$duration_ms.x,
+                 Explicit = raw_df_4$explicit)
+
+clean_df_4 <- as.data.frame(clean_df_4)
+```
+
+```{r}
+# Join everything together
+albums <- rbind(albums, clean_df_1, clean_df_2, clean_df_3, clean_df_4)
+```
+
+```{r}
+# Removing artists that got pulled from Spotify that aren't in AOTY: Becky G, John Mellencamp (This artisti also goes by John Cougar and his album under John Cougar is in AOTY but not John Mellencamp), مختلف الفنانين
+albums <- albums[!(albums$Artist=="John Mellencamp" | albums$Artist=="مختلف الفنانين" | albums$Artist=="Becky G"),]
+```
+
+```{r}
+# Making all of the album names to lower case to prepare for left join of albums and AOTY dataframes
+albums$Album <- tolower(albums$Album)
+AOTY$Album <- tolower(AOTY$Album)
+```
+
+```{r}
+#Changing album spotify pull album titles that don't correspond to AOTY resulting in NA during left_join
+albums$Album[469:486] <- "cuz i love you (deluxe)"
+albums$Album[1562:1574] <- "big whiskey & the groogrux king"
+albums$Album[28356:34266] <- "the e.n.d."
+albums$Album[2590:2626] <- "i am... sasha fierce"
+albums$Album[5497:5507] <- "girl"
+albums$Album[42833:42872] <- "love. angel. music. baby."
+albums$Album[48322:48380] <- "history: past, present and future, book i"
+albums$Album[14817:14827] <- "the barbra streisand album"
+albums$Album[36038:36047] <- "getz/gilberto"
+albums$Album[62906:62925] <- "blood, sweat & tears"
+albums$Album[28027:28057] <- "ella fitzgerald sings the irving berlin songbook"
+albums$Album[53191:53193] <- "tchaikovsky: concerto no. 1 in b flat minor, op. 23"
+albums$Album[46879:46897] <- "belafonte at carnegie hall"
+albums$Album[16807:16820] <- "more music from peter gunn"
+albums$Album[53211:53216] <- "rachmaninoff piano concerto no. 3"
+albums$Album[40632:40640] <- "victory at sea, vol. 1"
+albums$Album[18749:18760] <- "breakfast at tiffany's soundtrack"
+albums$Album[24918:24941] <- "modern sounds in country and western music"
+albums$Album[65736:65747] <- "days of wine and roses and other tv requests"
+albums$Album[18691:18702] <- "the pink panther"
+albums$Album[42037:42081] <- "doctor zhivago soundtrack"
+albums$Album[69890:69914] <- "chicago"
+albums$Album[30908:30925] <- "band on the run"
+albums$Album[33816:40175] <- "star wars soundtrack"
+albums$Album[48395:48418] <- "bad"
+albums$Album[23820:23835] <- "sign o' the times"
+```
+
+```{r}
+# Combining AOTY and albums dataframe to one dataframe
+AOTY_Spotify <- left_join(AOTY, albums, by = c("Album"))
+```
+
+```{r}
+write_csv(AOTY_Spotify, "AOTY_Spotify.csv")
+saveRDS(AOTY_Spotify, "AOTY_Spotify.RDS")
+```
+----------
+
+```{r}
+#Loading AOTY_Spotify dataframe so I don't have to run the entire code
+setwd("/Users/bolee/Desktop/QMSS/Spring20/DataViz/Group_R_Spotify")
+AOTY_Spotify <- read.csv("AOTY_Spotify/AOTY_Spotify.csv")
+```
+
+```{r}
+# Creating dataframe with average audio features we will be using for visualization
+AOTY_Avg <- AOTY_Spotify  %>% 
+  group_by(Album) %>% 
+  summarise(Artist = first(Artist), Year = first(Year), Win = first(Win), Avg_Energy = mean(Energy, na.rm = TRUE), Avg_Danceability = mean(Danceability, na.rm =TRUE), Avg_Loudness = mean(Loudness, na.rm = TRUE), Avg_Valence = mean(Valence, na.rm = TRUE), Avg_Tempo = mean(Tempo, na.rm = TRUE)) 
+#Add in popularity score
+```
+
+```{r}
+write_csv(AOTY_Avg, "AOTY_Avg.csv")
+saveRDS(AOTY_Avg, "AOTY_Avg.RDS")
+```
+
+

@@ -1,0 +1,13 @@
+name: Spotify
+title: Spotify
+username:
+account: boestherlee
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3454774
+bundleId: 4073324
+url: https://boestherlee.shinyapps.io/Spotify/
+when: 1610129849.26438
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: Spotify Shiny copy.Rmd|Spotify Shiny.Rmd

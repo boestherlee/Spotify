@@ -1,0 +1,18 @@
+# GET RIAA DATA
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(rvest)
+library(xml2)
+library(tidyverse)
+```
+
+```{r}
+riaa_roty_url <- "https://www.riaa.com/gold-platinum/?tab_active=awards_by_artist#search_section"
+riaa_roty_html <- read_html(riaa_roty_url)
+
+table <- html_nodes(riaa_roty_html, xpath = '//*[@id="artist-award-table"]/tbody')
+```
+

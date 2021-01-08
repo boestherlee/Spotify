@@ -1,0 +1,95 @@
+# GET SONG LYRICS FOR ALL AOTY WINNERS
+This file uses the Genius API to pull song lyrics for every song for every AOTY winner.
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(tidyverse)
+library(geniusr)
+```
+
+```{r message=FALSE}
+aoty_clean <- read_csv("AOTY/aoty_clean.csv")
+
+# Grab only AOTY winners
+winners <- aoty_clean %>%
+  filter(Win == 1)
+```
+
+```{r}
+################################################################################################################
+# We need to change some of the artist/album names to match what Genius has
+################################################################################################################
+winners$Album[14] <- "O Brother, Where Art Thou? (Music from the Motion Picture)"
+winners$Album[16] <- "Speakerboxxx / The Love Below"
+winners$Artist[17] <- "Ray Charles"
+winners$Artist[23] <- "Quincy Jones"
+winners$Artist[38] <- "Stan Getz"
+winners$Album[38] <- "Getz Gilberto"
+winners$Album[43] <- "Blood Sweat Tears"
+winners$Artist[43] <- "Blood Sweat Tears"
+winners$Artist[46] <- "George Harrison And Friends"
+winners$Album[52] <- "Saturday Night Fever: The Original Movie Sound Track"
+winners$Artist[52] <- "Various Artists"
+winners$Artist[55] <- "John Lennon"
+winners$Album[58] <- "Can t Slow Down"
+```
+
+```{r}
+################################################################################################################
+# We need to drop the following albums since they're not in Genius' archives:
+# 1. The Music from Peter Gunn
+# 2. The Button-Down Mind of Bob Newhart
+# 3. The First Family
+################################################################################################################
+winners <- winners[-c(32, 34, 36), ]
+```
+
+```{r}
+################################################################################################################
+# Pull the lyric URLs from Genius for each album
+################################################################################################################
+lyrics_raw <- NULL
+for (i in 1:nrow(winners)) {
+  output <- get_album_tracklist_search(artist_name = winners$Artist[i], album_name = winners$Album[i])
+  output$album <- winners$Album[i]
+  output$artist <- winners$Artist[i]
+  lyrics_raw <- rbind(lyrics_raw, output)
+}
+```
+
+```{r}
+################################################################################################################
+# Pull lyrics for each URL found in the preceding step
+################################################################################################################
+lyrics <- NULL
+for (i in 1:nrow(lyrics_raw)) {
+  output <- try(get_lyrics_url(lyrics_raw$song_lyrics_url[i])) # Wrap it in the `try` function to circumvent errors.
+  lyrics <- rbind(lyrics, output)
+}
+```
+
+```{r}
+# Some songs didn't return lyrics either because it's an instrumental track or it's
+# not yet transcribed in Genius. These are the songs that weren't found. Remove them from lyrics df.
+missing <- setdiff(unique(lyrics$song_lyrics_url), lyrics_raw$song_lyrics_url)
+
+lyrics <- lyrics %>% filter(!(song_lyrics_url %in% missing))
+```
+
+```{r}
+# Join everything together
+lyrics_clean <- lyrics %>% 
+  left_join(lyrics_raw, by = c("song_lyrics_url")) %>% select(line, song_title, album, artist, song_lyrics_url)
+
+years <- winners %>% select(album = Album, Year)
+
+lyrics_clean <- lyrics_clean %>% left_join(years, by = "album")
+```
+
+```{r}
+write_csv(lyrics_clean, "lyrics_clean.csv")
+saveRDS(lyrics_clean, "lyrics_clean.RDS")
+```
+

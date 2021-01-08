@@ -1,0 +1,368 @@
+library(rsconnect)
+library(tidyverse)
+library(textdata)
+library(tidytext)
+library(shiny)
+library(shinythemes)
+library(plotly)
+
+# Load cleaned data and make some adjustments to allow for easier manipulation
+aoty_full_join <- readr::read_csv("aoty_full_join.csv") %>% select(-`X1`)
+aoty_full_join$Song <- tolower(aoty_full_join$Song)
+aoty_full_join$Win <- ifelse(aoty_full_join$Win == 1, "Winner", "Loser")
+
+# Audio Features Data - Bo
+aoty_avg <- aoty_full_join %>% 
+  group_by(Album) %>% 
+  summarise(Artist = first(Artist), 
+            Year = first(Year), 
+            Win = first(Win), 
+            Explicit = first(Explicit), 
+            Duration = ((mean(Duration, na.rm = TRUE)/1000)/60), 
+            Energy = mean(Energy, na.rm = TRUE), 
+            Danceability = mean(Danceability, na.rm =TRUE), 
+            Loudness = mean(Loudness, na.rm = TRUE), 
+            Valence = mean(Valence, na.rm = TRUE), 
+            Tempo = mean(Tempo, na.rm = TRUE)) %>% 
+  mutate(Explicit = replace(Explicit, Explicit == 'TRUE', 'Explicit')) %>% 
+  mutate(Explicit = replace(Explicit, Explicit == 'FALSE', 'Clean')) %>% 
+  drop_na()
+
+# Audio Features Data - Braden
+clean_data <- aoty_full_join %>%
+  group_by(Year, Album, Artist, Song, Win) %>%
+  summarize(Danceability = mean(Danceability, na.rm = TRUE),
+            Energy = mean(Energy, na.rm = TRUE),
+            Tempo = mean(Tempo, na.rm = TRUE),
+            Valence = mean(Tempo, na.rm = TRUE),
+            Duration = ((mean(Duration, na.rm = TRUE)/1000)/60),
+            Loudness = mean(Loudness, na.rm = TRUE)) %>%
+  filter(!(Song %in% c("turnadot: act i", "turnadot: act ii", "turnadot: act iii", "3 peat - album version (edited)",
+                       "a milli - album version (edited)", "dontgetit - album version (edited)",
+                       "dr. carter - album version (edited)", "got money - album version (edited)",
+                       "la la - album version (edited)", "let the beat build - album version (edited)",
+                       "lollipop - album version (edited)", "mr. carter - album version (edited)",
+                       "mrs. officer - album version (edited)", "phone home - album version (edited)",
+                       "shoot me down - album version (edited)", "tie my hands - album version (edited)",
+                       "you ain't got nuthin - album version (edited)"))) %>%
+  drop_na()
+clean_data$Album <- stringr::str_to_title(clean_data$Album)
+clean_data$Artist <- stringr::str_to_title(clean_data$Artist)
+clean_data$Song <- stringr::str_to_title(clean_data$Song)
+
+# Text Analysis Data
+processed_text <- readRDS("processed_text.RDS")
+nrc <- readRDS("nrc.RDS")
+processed_text$complete_full <- ifelse(processed_text$complete_full == "babies", "baby", processed_text$complete_full)
+album_group <- processed_text %>% group_by(album, artist, Year) %>% count(complete_full) %>% top_n(10) %>% ungroup()
+
+ui <- fluidPage(
+  theme = shinythemes::shinytheme('paper'),
+  navbarPage("Grammy Album of the Year Trends", 
+             
+             # INTRODUCTION PANEL             
+             tabPanel("Introduction",
+                      tags$head(
+                        tags$style(HTML(
+                          "@import url('//fonts.googleapis.com/css2?family=Montserrat&family=Playfair+Display&display=swap');")
+                        )
+                      ),
+                      h1("What Makes a Grammy Win?", style = "font-family: 'Montserrat', sans-serif; font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("The Grammy Awards are awards that honor the artistic and technical achievements in the music industry each year. The awards are presented by the National Academy of Recording Arts and Sciences, an organization comprised of over 21,000 musicians, singers, songwriters, producers, engineers, and other music industry professionals. 
+      Perhaps the most coveted award is Album of the Year (AOTY), which honors the quality and artistry of a collection of tracks. One perennial debate among fans is whether or not the most deserving recipient took home the Grammy. 
+      As such, we endeavored to understand if the AOTY winners differed meaningfully from the other (losing) nominees in terms of audio features and lyrical composition. This website allows users to explore the audio features and lyrical composition for nearly every AOTY nominee over the past six decades. Additionally, users can understand how these metrics differ between winning albums and losing albums.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+             ),
+             
+             # DATA & METHODS PANEL  
+             tabPanel("Data & Methods",
+                      h1("Data", style = "font-family: 'Montserrat', sans-serif;  font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("Spotify, a music streaming service with over 286 million monthly active users, computes numerous audio features for every song on its platform. We pulled this data for nearly every AOTY nominee (314 in total from 1959 to 2020) from the Spotify API (via the R package ‘spotifyr’).", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p(tags$strong("The following five albums were unavailable in Spotify, so they were excluded from the analysis:"), style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("• Bach’s Greatest Hits by The Swingle Sisters (1964)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("• The Singing Nun by The Singing Nun (1964)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("• Jesus Christ Superstar (Original Broadway Cast Recording) by Various Artists (1973)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("• Jesus Christ Superstar (London Production) by Various Artists (1972)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("•	We Are the World by USA for Africa (1986)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      p("Meanwhile, song lyrics (excluding instrumental tracks) were pulled from the Genius API (via the R package ‘geniusr’)", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      h1("Methods", style = "font-family: 'Montserrat', sans-serif;  font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("We are analyzing albums based on the following six metrics: danceability, energy, loudness, valence, tempo, and duration.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      fluidPage(style = "font-size: 150%", tableOutput("audio_feat_desc"))
+             ),
+             
+             # AUDIO FEATURES PANEL
+             tabPanel("Audio Features",
+                      h1("Audio Features Over Time", style = "font-family: 'Montserrat', sans-serif;  font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("From 1959 to 2020, every audio feature has oscillated up and down throughout the years. 
+           Four audio features have generally trended up throughout the years: energy, danceability, loudness and valence. 
+           These increases indicate an increase in intensity, speed, loundness, positivity, and danceability in music today compared to before. 
+           The increases in these scores could be due to technological advancements in music production or changes in consumer taste.",
+                        style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      fluidRow(column(width = 12, plotlyOutput("overall", height = 800))),
+                      h1("Explore Audio Features for Each Album", style = "font-family: 'Montserrat', sans-serif;  font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("Use the dropdown menu below to see how audio features differ across songs for a selected album.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      sidebarLayout(
+                        sidebarPanel(width = 3,
+                                     selectInput("song_compare_album", "Select an Album:", sort(unique(clean_data$Album))),
+                                     textOutput("song_compare_artist"),
+                                     textOutput("song_compare_winner"),
+                                     textOutput("song_compare_year")),
+                        mainPanel(
+                          tabsetPanel(
+                            tabPanel("Song Audio Features", plotOutput("plot")))
+                        )
+                      )
+             ),
+             
+             # COMPARE ALBUMS PANEL
+             tabPanel("Compare Albums",
+                      h1("Explore Audio Differences Between Winners & Losers", style = "font-family: 'Montserrat', sans-serif; font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("Use the dropdown menu to observe trends between AOTY winners and losers throughout the years for a selected audio feature.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      fluidRow(theme = shinythemes::shinytheme('paper'),
+                               sidebarLayout(
+                                 sidebarPanel(width = 3,
+                                              selectInput("feature", "Select an Audio Feature:", choices=colnames(aoty_avg)[6:11])),
+                                 mainPanel(
+                                   tabsetPanel(
+                                     tabPanel("Feature Comparison", plotlyOutput("win_nom_plot")))))),
+                      h1("Compare Winning & Losing Albums", style = "font-family: 'Montserrat', sans-serif;  font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("Use the dropdown menu to observe how average audio feature scores differ between a selected album and its fellow nominees.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      sidebarLayout(
+                        sidebarPanel(width = 3,
+                                     selectInput("album", "Select an Album:", sort(unique(clean_data$Album))),
+                                     textOutput("artist"),
+                                     textOutput("winner"),
+                                     textOutput("year")),
+                        mainPanel(
+                          tabsetPanel(
+                            tabPanel("Album Comparison", plotOutput("summary_plot")))))
+             ),
+             
+             # LYRICAL COMPOSITION PANEL  
+             tabPanel("Lyrical Analysis",
+                      h1("Lyrical Analysis", style = "font-family: 'Montserrat', sans-serif; font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("We analyzed the lyrics for every AOTY winner and found that the most common word is 'love'. Explore other common words below.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      plotOutput("common_words_plot"),
+                      h1("Sentiment Analysis", style = "font-family: 'Montserrat', sans-serif; font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("We also analyzed the sentiment of the lyrics for every AOTY winner and found that the prevailing sentiments are 'positive' and 'joy', although 'negative' is not too far off. We performed a bag-of-words analysis, so negations and other complexities may not be reflected here.", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      plotOutput("sentiment"),
+                      h1("Explore the Most Common Words", style = "font-family: 'Montserrat', sans-serif; font-weight: 100; line-height: 1.1; color: #1DB954;"),
+                      p("Select your favorite AOTY winner from the dropdown menu and explore the top 10 most common words!", style = "font-size: 14pt; line-height: 1.0; color: #000000;"),
+                      sidebarLayout(
+                        sidebarPanel(width = 3,
+                                     selectInput("text_album", "Select a Winning Album:", sort(unique(album_group$album))),
+                                     textOutput("text_artist"),
+                                     textOutput("text_year")),
+                        mainPanel(
+                          tabsetPanel(
+                            tabPanel("Most Common Words", plotOutput("text_album_plot"))))))
+  )
+)
+
+server <- function(input, output) {
+  
+  # Audio Feature Explained Dataframe
+  Features <- c('Duration','Energy','Danceability','Loudness', 'Valence', 'Tempo')
+  Description <- c('Average length of songs in an album (in minutes)', 
+                   'Measures the intensity and activity of a track on a scale from 0.0 to 1.0 based on a combination of musical elements like dynamic range, perceived loudness, timbre, onset rate, and general entropy. A score of 0.0 is low energy whereas a score of 1.0 is high energy.',
+                   'Measures the danceability of a track on a scale from 0.0 to 1.0 based on a combination of musical elements like tempo, rhythm stability, beat strength, and overall regularity. A score of 0.0 is least danceable whereas a score of 1.0 is most danceable.',
+                   'Measures the overall loudness of a track in decibels (dB). Values typical range between -60 and 0 db.',
+                   'Measures the musical “positiveness” conveyed by a track on a scale from 0.0 to 1.0. A score closer to 0.0 sounds more negative (e.g. sad, depressed, angry), whereas a score closer to 1.0 sounds more positive (e.g. happy, cheerful, euphoric).',
+                   'Measures the speed of a track in beats per minute.')
+  audio_df <- data.frame(Features, Description)
+  
+  output$audio_feat_desc <- renderTable({
+    audio_df
+  })
+  
+  # Audio Features Over Time
+  overall_df <- reactive({
+    aoty_full_join %>% 
+      group_by(Year) %>%
+      summarize("Duration" = ((mean(Duration, na.rm = TRUE)/1000)/60), 
+                "Energy" = mean(Energy, na.rm = TRUE), 
+                "Danceability" = mean(Danceability, na.rm =TRUE), 
+                "Loudness"= mean(Loudness, na.rm = TRUE), 
+                "Valence" = mean(Valence, na.rm = TRUE), 
+                "Tempo" = mean(Tempo, na.rm = TRUE)) %>% 
+      gather(key=audio_feat, value = "Score", -Year)
+  })
+  
+  output$overall <- renderPlotly({
+    p_overall <- overall_df() %>% 
+      ggplot(aes(Year, Score)) + geom_line(color="#69b3a2") +
+      facet_wrap(~audio_feat, scales = "free") +
+      theme_light() +
+      theme(panel.spacing.x=unit(-.65, "lines"))
+    ggplotly(p_overall)
+  })
+  
+  # Explore Audio Features for Each Album
+  album_selection <- reactive({
+    clean_data %>% filter(Album == input$song_compare_album)
+  })
+  
+  album_tidy <- reactive({
+    album_selection() %>%
+      select(Song, Danceability, Energy, Tempo, Valence, Loudness, Duration) %>%
+      gather("key", "value", Danceability:Duration)
+  })
+  
+  output$song_compare_artist <- renderText({
+    paste("Artist Name: ", stringr::str_to_title(unique(album_selection()$Artist)))
+  })
+  
+  output$song_compare_winner <- renderText({
+    paste("Winner? (Y/N): ", ifelse(unique(album_selection()$Win) == "Winner", "Yes", "No"))
+  })
+  
+  output$song_compare_year <- renderText({
+    paste("Year: ", first(album_selection()$Year))
+  })
+  
+  output$plot <- renderPlot({
+    ggplot(album_tidy(), aes(x = Song, y = value, fill = factor(key))) + 
+      geom_col(alpha = 0.9) +
+      facet_wrap(~ key, scale = "free_x", nrow = 2) +
+      coord_flip() +
+      theme_light() +
+      labs(x = "",
+           y = "Audio Feature Score",
+           title = paste0("Breakdown of Audio Features for Each Song on \n\"", input$song_compare_album, "\"")) +
+      scale_fill_brewer(palette = "Set2") +
+      theme(legend.position = "none",
+            axis.text = element_text(size = 10),
+            plot.title = element_text(face = "bold", color = "black", size = 20),
+            legend.key.height=unit(1, "line"),
+            legend.key.width=unit(1, "line"))
+  })
+  
+  # Explore Audio Differences Between Winners & Losers   
+  output$win_nom_plot <- renderPlotly({
+    p_win <- aoty_avg %>% select(select_feature = input$feature, Year, Win) %>% 
+      ggplot(aes(x=Year, y=select_feature, color = Win)) +
+      geom_point(aes(color=Win), size = 1) +
+      geom_smooth(se=FALSE) +
+      theme_light() +
+      scale_color_manual(values=c('#999999','#69b3a2')) +
+      labs(
+        x = "Year",
+        y = "Average Audio Feature Score",
+        color = "") +
+      theme(legend.position = "top",
+            axis.text = element_text(size = 10),
+            plot.title = element_text(face = "bold", color = "black", size = 20),
+            legend.key.height=unit(1, "line"),
+            legend.key.width=unit(1, "line"))
+    ggplotly(p_win)
+  })
+  
+  # Compare Winning & Losing Albums
+  selection <- reactive({
+    clean_data %>% filter(Album == input$album)
+  })
+  
+  output$artist <- renderText({
+    paste("Artist Name: ", stringr::str_to_title(unique(selection()$Artist)))
+  })
+  
+  output$winner <- renderText({
+    paste("Winner? (Y/N): ", ifelse(unique(selection()$Win) == "Winner", "Yes", "No"))
+  })
+  
+  output$year <- renderText({
+    paste("Year: ", first(selection()$Year))
+  })
+  
+  album_compare <- reactive({
+    year <- unique(selection()$Year)
+    
+    clean_data %>%
+      filter(Year == year) %>%
+      group_by(Album, Win) %>%
+      summarize(Danceability = mean(Danceability, na.rm = TRUE),
+                Energy = mean(Energy, na.rm = TRUE),
+                Tempo = mean(Tempo, na.rm = TRUE),
+                Valence = mean(Valence, na.rm = TRUE),
+                Loudness = mean(Loudness, na.rm = TRUE),
+                Duration = mean(Duration, na.rm = TRUE)) %>%
+      gather("key", "value", Danceability:Duration)
+  })
+  
+  output$summary_plot <- renderPlot({
+    ggplot(album_compare(), aes(x = stringr::str_to_title(Album), y = value, color = factor(Win))) + 
+      geom_point(size = 5) +
+      coord_flip() +
+      facet_wrap(~ key, scale = "free_x", nrow = 2) +
+      theme_light() +
+      labs(title = paste0("How Does \"", stringr::str_to_title(input$album), "\"\nCompare to its Fellow Nominees?"),
+           x = "",
+           y = "Average Audio Feature Score",
+           color = "") +
+      scale_color_manual(values=c('#999999','#69b3a2')) +
+      theme(
+        axis.text = element_text(size = 10),
+        plot.title = element_text(face = "bold", color = "black", size = 20),
+        legend.key.height=unit(1, "line"),
+        legend.key.width=unit(1, "line"))})
+  
+  
+  # Lyrical Analysis
+  output$common_words_plot <- renderPlot({processed_text %>% group_by(complete_full) %>% summarize(count = n()) %>% top_n(20, count) %>%
+      ggplot(aes(x = reorder(complete_full, count), y = count)) + geom_col(fill = "#69b3a2") + coord_flip() +
+      labs(title = "The Top 20 Most Common Words Among Winning Albums",
+           x = "",
+           y = "Frequency") +
+      theme_light() +
+      geom_text(aes(x = complete_full, 
+                    y = count,
+                    label = paste0(round(count)), hjust = 1), color = "white") +
+      theme(axis.text = element_text(size = 10),
+            plot.title = element_text(face = "bold", color = "black", size = 20))})
+  
+  # Sentiment Analysis
+  output$sentiment <- renderPlot({
+    sentiment <- processed_text %>% inner_join(nrc)
+    grouped_sent <- sentiment %>% group_by(word, sentiment) %>% summarize(count = n())
+    sent_count <- grouped_sent %>% group_by(sentiment) %>% summarize(total = sum(count))
+    
+    sent_count %>% ggplot(aes(x = reorder(sentiment, total), y = total)) + 
+      geom_point(size = 5, color = "#69b3a2") + 
+      coord_flip() +
+      theme_light() +
+      geom_text(aes(x = sentiment, 
+                    y = total,
+                    label = total, hjust = -0.3), 
+                color = "black") +
+      labs(x = "",
+           y = "Frequency",
+           title = "Breakdown of Sentiment",
+           fill = "") + 
+      theme(axis.text = element_text(size = 10),
+            plot.title = element_text(face = "bold", color = "black", size = 20))
+  })
+  
+  # Explore the Most Common Words
+  text_album_subset <- reactive({
+    album_group %>% filter(album == input$text_album)
+  })
+  
+  output$text_artist <- renderText({
+    paste("Artist: ", first(text_album_subset()$artist))
+  })
+  
+  output$text_year <- renderText({
+    paste("Year: ", first(text_album_subset()$Year))
+  })
+  
+  output$text_album_plot <- renderPlot({
+    ggplot(text_album_subset(), aes(x = reorder(complete_full, n), y = n)) + geom_col(fill = "#69b3a2") + coord_flip() +
+      labs(title = "Top 10 Most Common Words",
+           x = "",
+           y = "Frequency") +
+      theme_light() +
+      theme(axis.text = element_text(size = 10),
+            plot.title = element_text(face = "bold", color = "black", size = 20))
+  })
+}  
+
+shinyApp(ui = ui, server = server)

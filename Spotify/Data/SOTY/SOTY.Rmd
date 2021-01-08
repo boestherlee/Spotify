@@ -1,0 +1,102 @@
+# GET SONG OF THE YEAR DATA
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(rvest)
+library(xml2)
+library(tidyverse)
+```
+
+```{r}
+soty_url <- "https://en.wikipedia.org/wiki/Grammy_Award_for_Song_of_the_Year"
+soty_html <- read_html(soty_url)
+
+table <- html_nodes(soty_html, css = ".wikitable")
+soty_data <- html_table(table, fill = TRUE)
+```
+
+## Winners
+```{r}
+################################################################################################################
+# Create a data frame of SOTY cases.
+#
+# The Wikipedia table has a 'Winners' column and a 'Nominees' column.
+# As such, we will have to work with them separately. Start by creating a data frame of winners.
+################################################################################################################
+
+soty_messy <- soty_data[[1]]
+
+soty_df_raw_1 <- soty_messy %>%
+  select(Year = `Year[I]`, Song = Work, Artist = `Performing artist(s)[II]`)
+
+soty_df_raw_1$Win <- 1 # Create dummy variable `Win`. Since these are all winners, assign them a value of 1.
+soty_df_raw_1$Song <- str_remove_all(soty_df_raw_1$Song, "\"") # Get rid of quotation marks around song titles
+soty_df_raw_1$Song <- str_remove_all(soty_df_raw_1$Song, "[*]") # Get rid of asterisks in song titles
+```
+
+
+## Nominees
+```{r}
+################################################################################################################
+# Now we will create a data frame for the rest of the nominees.
+# The 'Nominees' column is quite messy. It's simplest to write lines, export to CSV and read it back in.
+# This way, there is 1 nominee per row.
+################################################################################################################
+
+# There was a missing "for" in the string below (after Sam Roman) which messed up the code for lines 54-55; added it here.
+
+soty_messy[62, "Nominees"] <- "Natalie Hemby, Lady Gaga, Hillary Lindsey & Lori McKenna for \"Always Remember Us This Way\" performed by Lady Gaga\nBrandi Carlile, Phil Hanseroth, Tim Hanseroth & Tanya Tucker for \"Bring My Flowers Now\" performed by Tanya Tucker\nRuby Amanfu, Sam Ashworth, D. Arcelious Harris, H.E.R. & Rodney Jerkins for \"Hard Place\" performed by H.E.R.\nTaylor Swift for \"Lover\" performed by Taylor Swift\nJack Antonoff & Lana Del Rey for \"Norman Fucking Rockwell\" performed by Lana Del Rey\nTom Barnes, Lewis Capaldi, Pete Kelleher, Benjamin Kohn & Sam Roman for \"Someone You Loved\" performed by Lewis Capaldi\nSteven Cheung, Eric Frederic, Melissa Jefferson & Jesse Saint John for \"Truth Hurts\" performed by Lizzo"
+
+cat(soty_messy$Nominees, file = "output.txt", sep = "\n")
+soty_messy_nominees <- read.delim("output.txt", header = FALSE)
+
+# The string contains the song writers, song title and the artist, so we need to separate them into three different columns.
+# First, split off song writers since they come first.
+soty_messy_nominees <- soty_messy_nominees %>%
+  separate(V1, c("Key", "Value"), sep = " for ", extra = "merge")
+
+# Next, split up song from artist.
+soty_messy_nominees <- soty_messy_nominees %>%
+  separate(Value, c("Song", "Artist"), sep = " performed by ")
+
+soty_messy_nominees$Win <- 0 # Create dummy variable `Win`. Since they all lost, give them a value of 0.
+
+# Lastly, we need to append a new column for years. 
+# There are 4 other nominees per year from 1959 to 1979; 7 other nominees in 1980;
+# 5 other nominees in 1981; 4 other nominees from 1982 to 2018; and 7 other nominees in 2019 and 2020.
+years <- 1959:1979
+years_rep <- NULL
+for (i in years) {
+  years_rep <- c(years_rep, rep(i, 4))
+}
+
+years_rep <- c(years_rep, rep(1980, 7))
+years_rep <- c(years_rep, rep(1981, 5))
+
+years <- 1982:2018
+for (i in years) {
+  years_rep <- c(years_rep, rep(i, 4))
+}
+
+years_rep <- c(years_rep, rep(2019, 7))
+years_rep <- c(years_rep, rep(2020, 7))
+
+soty_df_raw_2 <- cbind(Year = years_rep, select(soty_messy_nominees, -Key))
+```
+
+```{r}
+################################################################################################################
+# Bring all of the raw data frames together to form one clean data frame.
+# There's some random white space for some of these variables that also need to be removed.
+################################################################################################################
+
+soty_clean <- rbind(soty_df_raw_1, soty_df_raw_2)
+soty_clean$Song <- str_trim(soty_clean$Song)
+soty_clean$Artist <- str_trim(soty_clean$Artist)
+
+saveRDS(soty_clean, "soty_clean.RDS")
+write_csv(soty_clean, "soty_clean.csv")
+```
+

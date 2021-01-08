@@ -1,0 +1,91 @@
+# GET SPOTIFY DATA OF SOTY
+
+```{r message=FALSE}
+################################################################################################################
+# Load libraries
+################################################################################################################
+library(plyr)
+library(tidyverse)
+library(httr)
+library(jsonlite)
+library(spotifyr)
+library(data.table)
+```
+
+```{r}
+R.home(component = "home")
+usethis::edit_r_environ()
+access_token <- get_spotify_access_token()
+```
+
+```{r}
+setwd("/Users/bolee/Desktop/QMSS/Spring20/DataViz/Group_R_Spotify")
+AOTY <- read.csv("AOTY/aoty_clean.csv")
+ROTY <- read.csv("ROTY/roty_clean.csv")
+SOTY <- read.csv("SOTY/soty_clean.csv")
+albums_preview <- read.csv("Spotify_Albums/albums.csv")
+```
+
+```{r}
+#Seeing what columns are returned in get_artist_audio_features for an artist
+test0 <- get_artist_audio_features("Taylor Swift", include_groups = "album", authorization = get_spotify_access_token())
+head(test0)
+```
+
+```{r}
+#Seeing what columns are returned in search_spotify for an artist
+test1 <- search_spotify("Bon Iver", type = c("artist"), market = NULL, limit = 1, offset = 0, include_external = NULL, authorization = get_spotify_access_token())  %>%
+  select(id, name, popularity, followers.total)
+head(test1)
+```
+
+```{r}
+#Creating a dataframe of artists from ROTY's Spotify popularity score and their number of followers on Spotify
+search_artist <- list()
+for (i in 1:length(ROTY)){
+  search_artist[i] = search_spotify("ROTY$Artist[i])", type = c("artist"), market = NULL, limit = 1, offset = 0, include_external = NULL, authorization = get_spotify_access_token())}
+head(rbind.fill(search_artists))
+```
+
+```{r}
+#Seeing what columns are returned in get_track_audio_features for a track
+test2 <- get_track_audio_features("4IablJ6SqVNGY4vrseyKxu", authorization = get_spotify_access_token())
+head(test2)
+```
+
+```{r}
+#For loop through search_spotify function to find spotify id for songs in SOTY
+search_track <- list()
+for(i in 1:nrow(SOTY)){
+    search_track[[i]] = search_spotify("SOTY$Song[i]", type = c("track"), market = NULL, limit = 1, offset = 0, include_external = NULL, authorization = get_spotify_access_token())}
+head(rbind.fill(search_track))
+
+#Creating a dataframe of songs from SOTY's Spotify's audio features
+SOTY_spotify <- list()
+for(i in 1:nrow(search_track)){
+  SOTY_spotify[[i]]= get_artist_audio_features('search_track$id[i]', authorization = get_spotify_access_token())}
+head(rbind.fill(SOTY_spotify))
+```
+
+```{r}
+#Seeing what columns are returned in get_track_audio_features for a track
+test3<- get_albums('0IMTA2Wz6p8CNZ0MDK2zvg', market = NULL, authorization = get_spotify_access_token())
+head(test3)
+```
+
+```{r}
+#Creating a dataframe of albums from AOTY's Spotify's popularity score
+#For loop through search_spotify function to find spotify id for songs in SOTY
+search_album <- list()
+for(i in 1:nrow(AOTY)){
+    search_track[[i]] = search_spotify("AOTY$Album[i]", type = c("album"), market = NULL, limit = 1, offset = 0, include_external = NULL, authorization = get_spotify_access_token())}
+head(rbind.fill(search_album))
+
+#Creating a dataframe of songs from SOTY's Spotify's audio features
+AOTY_spotify <- list()
+for(i in 1:nrow(search_track)){
+  AOTY_spotify[[i]]= get_albums('search_album$id[i]', authorization = get_spotify_access_token())}
+head(rbind.fill(AOTY_spotify))
+```
+
+
